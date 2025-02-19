@@ -1,19 +1,6 @@
 ﻿namespace Asc.Utils.Commander;
 
-public interface ICommandBuilderBase
-{
-    ICommandBuilder OnSpecificFailure<TException>(Action<TException> onFailure) where TException : Exception;
-
-    ICommandBuilder OnSpecificFailure<TException>(Func<TException, Task> onSuccess) where TException : Exception;
-
-    ICommandBuilder OnFailure(Action<Exception> onFailure);
-
-    ICommandBuilder OnFailure(Func<Exception, Task> onFailure);
-
-    ICommand Build();
-}
-
-public interface ICommandBuilder : ICommandBuilderBase
+public interface ICommandBuilder
 {
     ICommandBuilder Job(Action job);
 
@@ -22,15 +9,31 @@ public interface ICommandBuilder : ICommandBuilderBase
     ICommandBuilder OnSuccess(Action onSuccess);
 
     ICommandBuilder OnSuccess(Func<Task> onSuccess);
+
+    ICommandBuilder OnFailure<TException>(Action<TException> onFailure) where TException : Exception;
+
+    ICommandBuilder OnFailure<TException>(Func<TException, Task> onFailure) where TException : Exception;
+
+    ICommandBuilder SetId(string id);
+
+    ICommand Build();
 }
 
-public interface ICommandBuilder<TResult> : ICommandBuilderBase
+public interface ICommandBuilder<TResult>
 {
-    ICommandBuilder Job(Func<TResult> job);
+    ICommandBuilder<TResult> Job(Func<TResult> job);
 
-    ICommandBuilder Job(Func<Task<TResult>> job);
+    ICommandBuilder<TResult> Job(Func<Task<TResult>> job);
 
-    ICommandBuilder OnSuccess(Action<TResult> onSuccess);
+    ICommandBuilder<TResult> OnSuccess(Action<TResult> onSuccess);
 
-    ICommandBuilder OnSuccess(Func<TResult, Task> onSuccess);
-}
+    ICommandBuilder<TResult> OnSuccess(Func<TResult, Task> onSuccess);
+
+    ICommandBuilder<TResult> OnFailure<TException>(Action<TException> onFailure) where TException : Exception;
+
+    ICommandBuilder<TResult> OnFailure<TException>(Func<TException, Task> onFailure) where TException : Exception;
+
+    ICommandBuilder<TResult> SetId(string id);
+
+    ICommand<TResult> Build();
+} 

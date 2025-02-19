@@ -2,5 +2,9 @@
 
 public interface ICommander
 {
-    ICommandBuilder GetBuilder();
+    ICommandBuilder GetCommandBuilder();
+
+    ICommandBuilder<TResult> GetCommandBuilder<TResult>();
+
+    ICommandProcessor GetCommandProcessor(CommandExecutionMode executionMode);
 }
