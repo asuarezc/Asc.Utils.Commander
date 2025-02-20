@@ -5,7 +5,7 @@ namespace Asc.Utils.Commander.Implementation;
 internal abstract class CommandBase(
     List<ExceptionCommandDelegate> onFailureDelegates,
     CommandDelegate? onFinallyDelegate,
-    string id = "")
+    string id)
 {
     public string Id { get; private set; } = id;
 
@@ -14,41 +14,6 @@ internal abstract class CommandBase(
     internal List<ExceptionCommandDelegate> OnFailureDelegates { get; private set; } = onFailureDelegates;
 
     internal CommandDelegate? OnFinallyDelegate { get; private set; } = onFinallyDelegate;
-
-    protected async Task ManageExceptionAsync(Exception ex)
-    {
-        if (OnFailureDelegates is null || OnFailureDelegates.Count == 0)
-            return;
-
-        Type exType = ex.GetType();
-
-        IEnumerable<ExceptionCommandDelegate>? onTypedFailures = OnFailureDelegates
-            .Where(it => it.ExceptionType is not null && it.ExceptionType.Equals(exType));
-
-        if (onTypedFailures is null || !onTypedFailures.Any())
-            return;
-
-        foreach (var onTypedFailure in onTypedFailures.Where(it => it.CanExecute()))
-            await onTypedFailure.RunAsync(ex);
-    }
-
-    protected async Task ManageExceptionAsync(Exception ex, List<DefaultExceptionCommandDelegate> delegates, TimeSpan jobExecutionTime)
-    {
-        if (delegates is null || delegates.Count == 0)
-            return;
-
-        Type exType = ex.GetType();
-
-        IEnumerable<DefaultExceptionCommandDelegate>? onTypedFailures = delegates.Where(it => it.ExceptionType.Equals(exType));
-
-        if (onTypedFailures is null || !onTypedFailures.Any())
-            return;
-
-        ExecutedCommand executedCommand = new(jobExecutionTime, ExecutedCommandResult.Failed, Id);
-
-        foreach (var onTypedFailure in onTypedFailures.Where(it => it.CanExecute()))
-            await onTypedFailure.RunAsync(ex, executedCommand);
-    }
 
     internal virtual Task RunAsync(CommandProcessorConfiguration configuration)
     {
@@ -61,7 +26,7 @@ internal class Command(
     CommandDelegate? onSuccessDelegate,
     List<ExceptionCommandDelegate> onFailureDelegates,
     CommandDelegate? onFinallyDelegate,
-    string id = "") : CommandBase(onFailureDelegates, onFinallyDelegate, id), ICommand
+    string id) : CommandBase(onFailureDelegates, onFinallyDelegate, id), ICommand
 {
     internal CommandDelegate? JobDelegate { get; private set; } = jobDelegate;
 
@@ -88,17 +53,24 @@ internal class Command(
             stopwatch.Stop();
             success = false;
 
-            if (configuration.OnFailureDelegates is not null)
-                await ManageExceptionAsync(ex, configuration.OnFailureDelegates, stopwatch.Elapsed);
-
-            await ManageExceptionAsync(ex);
+            await ExceptionManager.ManageExceptionAsync(
+                exception: ex,
+                delegates: OnFailureDelegates,
+                defaultDelegates: configuration.OnFailureDelegates,
+                jobElapsedTime: stopwatch.Elapsed,
+                id: Id
+            );
         }
         finally
         {
             if (stopwatch.IsRunning)
                 stopwatch.Stop();
 
-            ExecutedCommand executedCommand = new(stopwatch.Elapsed, success ? ExecutedCommandResult.Succeeded : ExecutedCommandResult.Failed, Id);
+            ExecutedCommand executedCommand = new(
+                stopwatch.Elapsed,
+                success ? ExecutedCommandResult.Succeeded : ExecutedCommandResult.Failed,
+                Id
+            );
 
             if (success)
             {
@@ -123,7 +95,7 @@ internal class Command<TResult>(
     CommandOnSuccessDelegate<TResult>? onSuccessDelegate,
     List<ExceptionCommandDelegate> onFailureDelegates,
     CommandDelegate? onFinallyDelegate,
-    string id = "") : CommandBase(onFailureDelegates, onFinallyDelegate, id), ICommand
+    string id) : CommandBase(onFailureDelegates, onFinallyDelegate, id), ICommand
 {
     internal CommandJobDelegate<TResult>? JobDelegate { get; private set; } = jobDelegate;
 
@@ -151,17 +123,24 @@ internal class Command<TResult>(
             stopwatch.Stop();
             success = false;
 
-            if (configuration.OnFailureDelegates is not null)
-                await ManageExceptionAsync(ex, configuration.OnFailureDelegates, stopwatch.Elapsed);
-
-            await ManageExceptionAsync(ex);
+            await ExceptionManager.ManageExceptionAsync(
+                exception: ex,
+                delegates: OnFailureDelegates,
+                defaultDelegates: configuration.OnFailureDelegates,
+                jobElapsedTime: stopwatch.Elapsed,
+                id: Id
+            );
         }
         finally
         {
             if (stopwatch.IsRunning)
                 stopwatch.Stop();
 
-            ExecutedCommand executedCommand = new(stopwatch.Elapsed, success ? ExecutedCommandResult.Succeeded : ExecutedCommandResult.Failed, Id);
+            ExecutedCommand executedCommand = new(
+                stopwatch.Elapsed,
+                success ? ExecutedCommandResult.Succeeded : ExecutedCommandResult.Failed,
+                Id
+            );
 
             if (success)
             {

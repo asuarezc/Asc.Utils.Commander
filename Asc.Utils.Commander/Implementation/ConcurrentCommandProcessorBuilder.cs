@@ -6,30 +6,24 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
     private DefaultExecutedCommandDelegate? onSuccessDelegate = null;
     private readonly List<DefaultExceptionCommandDelegate> onFailureDelegates = [];
     private DefaultExecutedCommandDelegate? onFinallyDelegate = null;
-    private int? maxThreads = null;
+    private int? maxNumberOfCommandsProcessedSimultaneosly = null;
 
-    public IConcurrentCommandProcessorBuilder SetMaxThreads(int maxThreads)
+    public IConcurrentCommandProcessorBuilder SetMaxNumberOfCommandsProcessedSimultaneosly(
+        int maxNumberOfCommandsProcessedSimultaneosly)
     {
-        if (maxThreads <= 0 || maxThreads > Environment.ProcessorCount)
-            throw new ArgumentException($"Value must be between 1 and {Environment.ProcessorCount}", nameof(maxThreads));
+        if (maxNumberOfCommandsProcessedSimultaneosly <= 0)
+            throw new ArgumentException("Value must be greater than 0", nameof(maxNumberOfCommandsProcessedSimultaneosly));
 
-        CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(this.maxThreads);
-        this.maxThreads = maxThreads;
+        CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(
+            this.maxNumberOfCommandsProcessedSimultaneosly
+        );
+
+        this.maxNumberOfCommandsProcessedSimultaneosly = maxNumberOfCommandsProcessedSimultaneosly;
 
         return this;
     }
 
-    public IConcurrentCommandProcessorBuilder AddOnBeforeJobDelegate(Action<ICommand> onBeforeJob)
-    {
-        ArgumentNullException.ThrowIfNull(onBeforeJob, nameof(onBeforeJob));
-        CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onBeforeJobDelegate);
-
-        onBeforeJobDelegate = new DefaultCommandDelegate(onBeforeJob);
-
-        return this;
-    }
-
-    public IConcurrentCommandProcessorBuilder AddOnBeforeJobDelegate(Func<ICommand, Task> onBeforeJob)
+    public IConcurrentCommandProcessorBuilder OnBeforeAnyJob(Action<ICommand> onBeforeJob)
     {
         ArgumentNullException.ThrowIfNull(onBeforeJob, nameof(onBeforeJob));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onBeforeJobDelegate);
@@ -39,7 +33,17 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
         return this;
     }
 
-    public IConcurrentCommandProcessorBuilder AddOnSuccessDelegate(Action<IExecutedCommand> onSuccess)
+    public IConcurrentCommandProcessorBuilder OnBeforeAnyJob(Func<ICommand, Task> onBeforeJob)
+    {
+        ArgumentNullException.ThrowIfNull(onBeforeJob, nameof(onBeforeJob));
+        CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onBeforeJobDelegate);
+
+        onBeforeJobDelegate = new DefaultCommandDelegate(onBeforeJob);
+
+        return this;
+    }
+
+    public IConcurrentCommandProcessorBuilder OnAnyJobSuccess(Action<IExecutedCommand> onSuccess)
     {
         ArgumentNullException.ThrowIfNull(onSuccess, nameof(onSuccess));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onSuccessDelegate);
@@ -49,7 +53,7 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
         return this;
     }
 
-    public IConcurrentCommandProcessorBuilder AddOnSuccessDelegate(Func<IExecutedCommand, Task> onSuccess)
+    public IConcurrentCommandProcessorBuilder OnAnyJobSuccess(Func<IExecutedCommand, Task> onSuccess)
     {
         ArgumentNullException.ThrowIfNull(onSuccess, nameof(onSuccess));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onSuccessDelegate);
@@ -59,7 +63,7 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
         return this;
     }
 
-    public IConcurrentCommandProcessorBuilder AddOnFailureDelegate<TException>(Action<TException, IExecutedCommand> onFailure) where TException : Exception
+    public IConcurrentCommandProcessorBuilder OnAnyJobFailure<TException>(Action<TException, IExecutedCommand> onFailure) where TException : Exception
     {
         ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat<TException>(onFailureDelegates);
@@ -69,7 +73,7 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
         return this;
     }
 
-    public IConcurrentCommandProcessorBuilder AddOnFailureDelegate<TException>(Func<TException, IExecutedCommand, Task> onFailure) where TException : Exception
+    public IConcurrentCommandProcessorBuilder OnAnyJobFailure<TException>(Func<TException, IExecutedCommand, Task> onFailure) where TException : Exception
     {
         ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat<TException>(onFailureDelegates);
@@ -79,7 +83,7 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
         return this;
     }
 
-    public IConcurrentCommandProcessorBuilder AddOnFinallyDelegate(Action<IExecutedCommand> onFinally)
+    public IConcurrentCommandProcessorBuilder OnAfterAnyJob(Action<IExecutedCommand> onFinally)
     {
         ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
@@ -89,7 +93,7 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
         return this;
     }
 
-    public IConcurrentCommandProcessorBuilder AddOnFinallyDelegate(Func<IExecutedCommand, Task> onFinally)
+    public IConcurrentCommandProcessorBuilder OnAfterAnyJob(Func<IExecutedCommand, Task> onFinally)
     {
         ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
@@ -101,15 +105,22 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
 
     public ICommandProcessor Build()
     {
+        if (onFailureDelegates is null
+            || onFailureDelegates.Count == 0
+            || !onFailureDelegates.Any(it => it.ExceptionType is not null && it.ExceptionType.Equals(typeof(Exception))))
+        {
+            throw new InvalidOperationException("An on failure delegate for Exception instances is mandatory");
+        }
+
         ConcurrentCommandProcessorConfiguration processorConfiguration = new()
         {
             OnBeforeJobDelegate = onBeforeJobDelegate,
             OnSuccessDelegate = onSuccessDelegate,
             OnFailureDelegates = onFailureDelegates,
             OnFinallyDelegate = onFinallyDelegate,
-            MaxThreads = maxThreads,
+            MaxNumberOfCommandsProcessedSimultaneosly = maxNumberOfCommandsProcessedSimultaneosly,
         };
 
-        throw new NotImplementedException();
+        return new ConcurrentCommandProcessor(processorConfiguration);
     }
 }

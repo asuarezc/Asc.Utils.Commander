@@ -1,18 +1,13 @@
-﻿using Asc.Utils.Needle;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
 namespace Asc.Utils.Commander.Implementation;
 
 internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguration configuration)
     : ICommandProcessor
 {
+    private int numberOfProcessingCommands = 0;
     private readonly ConcurrentCommandProcessorConfiguration? configuration = configuration;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
-
-    private readonly INeedleWorkerSlim worker = Pincushion.Instance.GetSemaphoreWorkerSlim(
-        maxThreads: configuration.MaxThreads ?? Environment.ProcessorCount,
-        cancelPendingJobsIfAnyOtherFails: false
-    );
 
     private Task? processUntilQueueIsEmptyTask = null;
 
@@ -55,10 +50,20 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
             if (command is not CommandBase commandBase)
                 throw new InvalidOperationException("Cannot process a null command");
 
-            worker.AddJob(async () => await commandBase.RunAsync(configuration));
-        } while (!pendingCommands.IsEmpty);
+            _ = Task.Run(async () =>
+            {
+                numberOfProcessingCommands++;
 
-        await worker.RunAsync();
+                try
+                {
+                    await commandBase.RunAsync(configuration);
+                }
+                finally
+                {
+                    numberOfProcessingCommands--;
+                }
+            });
+        } while (!pendingCommands.IsEmpty || numberOfProcessingCommands <= configuration.MaxNumberOfCommandsProcessedSimultaneosly);
 
         if (!pendingCommands.IsEmpty)
             await ProcessUntilQueueIsEmptyAsync();

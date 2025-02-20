@@ -7,7 +7,7 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
     private readonly List<DefaultExceptionCommandDelegate> onFailureDelegates = [];
     private DefaultExecutedCommandDelegate? onFinallyDelegate = null;
 
-    public ISequentialCommandProcessorBuilder AddOnBeforeJobDelegate(Action<ICommand> onBeforeJob)
+    public ISequentialCommandProcessorBuilder OnBeforeAnyJob(Action<ICommand> onBeforeJob)
     {
         ArgumentNullException.ThrowIfNull(onBeforeJob, nameof(onBeforeJob));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onBeforeJobDelegate);
@@ -17,7 +17,7 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
         return this;
     }
 
-    public ISequentialCommandProcessorBuilder AddOnBeforeJobDelegate(Func<ICommand, Task> onBeforeJob)
+    public ISequentialCommandProcessorBuilder OnBeforeAnyJob(Func<ICommand, Task> onBeforeJob)
     {
         ArgumentNullException.ThrowIfNull(onBeforeJob, nameof(onBeforeJob));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onBeforeJobDelegate);
@@ -27,7 +27,7 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
         return this;
     }
 
-    public ISequentialCommandProcessorBuilder AddOnSuccessDelegate(Action<IExecutedCommand> onSuccess)
+    public ISequentialCommandProcessorBuilder OnAnyJobSuccess(Action<IExecutedCommand> onSuccess)
     {
         ArgumentNullException.ThrowIfNull(onSuccess, nameof(onSuccess));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onSuccessDelegate);
@@ -37,7 +37,7 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
         return this;
     }
 
-    public ISequentialCommandProcessorBuilder AddOnSuccessDelegate(Func<IExecutedCommand, Task> onSuccess)
+    public ISequentialCommandProcessorBuilder OnAnyJobSuccess(Func<IExecutedCommand, Task> onSuccess)
     {
         ArgumentNullException.ThrowIfNull(onSuccess, nameof(onSuccess));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onSuccessDelegate);
@@ -47,7 +47,8 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
         return this;
     }
 
-    public ISequentialCommandProcessorBuilder AddOnFailureDelegate<TException>(Action<TException, IExecutedCommand> onFailure) where TException : Exception
+    public ISequentialCommandProcessorBuilder OnAnyJobFailure<TException>(Action<TException, IExecutedCommand> onFailure)
+        where TException : Exception
     {
         ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat<TException>(onFailureDelegates);
@@ -57,7 +58,8 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
         return this;
     }
 
-    public ISequentialCommandProcessorBuilder AddOnFailureDelegate<TException>(Func<TException, IExecutedCommand, Task> onFailure) where TException : Exception
+    public ISequentialCommandProcessorBuilder OnAnyJobFailure<TException>(Func<TException, IExecutedCommand, Task> onFailure)
+        where TException : Exception
     {
         ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat<TException>(onFailureDelegates);
@@ -67,7 +69,7 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
         return this;
     }
 
-    public ISequentialCommandProcessorBuilder AddOnFinallyDelegate(Action<IExecutedCommand> onFinally)
+    public ISequentialCommandProcessorBuilder OnAfterAnyJob(Action<IExecutedCommand> onFinally)
     {
         ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
@@ -77,7 +79,7 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
         return this;
     }
 
-    public ISequentialCommandProcessorBuilder AddOnFinallyDelegate(Func<IExecutedCommand, Task> onFinally)
+    public ISequentialCommandProcessorBuilder OnAfterAnyJob(Func<IExecutedCommand, Task> onFinally)
     {
         ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
@@ -89,6 +91,13 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
 
     public ICommandProcessor Build()
     {
+        if (onFailureDelegates is null
+            || onFailureDelegates.Count == 0
+            || !onFailureDelegates.Any(it => it.ExceptionType is not null && it.ExceptionType.Equals(typeof(Exception))))
+        {
+            throw new InvalidOperationException("An on failure delegate for Exception instances is mandatory");
+        }
+
         CommandProcessorConfiguration processorConfiguration = new()
         {
             OnBeforeJobDelegate = onBeforeJobDelegate,

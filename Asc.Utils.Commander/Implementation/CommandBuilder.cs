@@ -93,6 +93,9 @@ internal class CommandBuilder : ICommandBuilder
         if (string.IsNullOrEmpty(id))
             throw new ArgumentNullException(nameof(id));
 
+        if (!string.IsNullOrEmpty(this.id))
+            throw new InvalidOperationException("Command already have an Id");
+
         this.id = id;
 
         return this;
@@ -104,7 +107,7 @@ internal class CommandBuilder : ICommandBuilder
             throw new InvalidOperationException("Job delegate is mandatory");
 
         if (string.IsNullOrEmpty(id))
-            return new Command(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate);
+            throw new InvalidOperationException("Id is mandatory");
 
         return new Command(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate, id);
     }
@@ -203,6 +206,9 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
         if (string.IsNullOrEmpty(id))
             throw new ArgumentNullException(nameof(id));
 
+        if (!string.IsNullOrEmpty(this.id))
+            throw new InvalidOperationException("Command already have an Id");
+
         this.id = id;
 
         return this;
@@ -214,7 +220,7 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
             throw new InvalidOperationException("Job delegate is mandatory");
 
         if (string.IsNullOrEmpty(id))
-            return new Command<TResult>(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate);
+            throw new InvalidOperationException("Id is mandatory");
 
         return new Command<TResult>(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate, id);
     }
