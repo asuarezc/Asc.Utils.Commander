@@ -58,40 +58,14 @@ internal class DefaultExecutedCommandDelegate
 
 internal abstract class DefaultExceptionCommandDelegate
 {
-    internal Type ExceptionType { get; set; }
+    internal Type? ExceptionType { get; set; }
 
-    internal Action<Exception, IExecutedCommand>? BaseSyncronousDelegate { get; private set; }
-
-    internal Func<Exception, IExecutedCommand, Task>? BaseAsyncronousDelegate { get; private set; }
-
-    public DefaultExceptionCommandDelegate(Type exceptionType, Action<Exception, IExecutedCommand> baseSyncronousDelegate)
+    internal virtual Task RunAsync(Exception ex, IExecutedCommand command)
     {
-        ExceptionType = exceptionType;
-        BaseSyncronousDelegate = baseSyncronousDelegate;
+        throw new InvalidOperationException("Use derived type");
     }
 
-    public DefaultExceptionCommandDelegate(Type exceptionType, Func<Exception, IExecutedCommand, Task> baseAsyncronousDelegate)
-    {
-        ExceptionType = exceptionType;
-        BaseAsyncronousDelegate = baseAsyncronousDelegate;
-    }
-
-    internal bool CanExecute() => BaseSyncronousDelegate is not null || BaseAsyncronousDelegate is not null;
-
-    internal async Task ExecuteAsync(Exception ex, IExecutedCommand command)
-    {
-        if (BaseAsyncronousDelegate is not null)
-        {
-            await BaseAsyncronousDelegate(ex, command);
-            return;
-        }
-
-        if (BaseSyncronousDelegate is not null)
-        {
-            await Task.Run(() => BaseSyncronousDelegate(ex, command));
-            return;
-        }
-    }
+    internal virtual bool CanExecute() => false;
 }
 
 internal class DefaultExceptionCommandDelegate<TException> : DefaultExceptionCommandDelegate where TException : Exception
@@ -100,13 +74,43 @@ internal class DefaultExceptionCommandDelegate<TException> : DefaultExceptionCom
 
     internal Func<TException, IExecutedCommand, Task>? AsyncronousDelegate { get; private set; }
 
-    internal DefaultExceptionCommandDelegate(Action<TException, IExecutedCommand> syncronousDelegate) : base(typeof(TException), (Action<Exception, IExecutedCommand>)syncronousDelegate)
+    internal override bool CanExecute() => AsyncronousDelegate is not null || SyncronousDelegate is not null;
+
+    private DefaultExceptionCommandDelegate()
+    {
+        ExceptionType = typeof(TException);
+    }
+
+    internal DefaultExceptionCommandDelegate(Action<TException, IExecutedCommand> syncronousDelegate) : this()
     {
         SyncronousDelegate = syncronousDelegate;
     }
 
-    internal DefaultExceptionCommandDelegate(Func<TException, IExecutedCommand, Task> asyncronousDelegate) : base(typeof(TException), (Func<Exception, IExecutedCommand, Task>)asyncronousDelegate)
+    internal DefaultExceptionCommandDelegate(Func<TException, IExecutedCommand, Task> asyncronousDelegate) : this()
     {
         AsyncronousDelegate = asyncronousDelegate;
+    }
+
+    internal override async Task RunAsync(Exception ex, IExecutedCommand command)
+    {
+        if (ex is null)
+            return;
+
+        await ExecuteAsync((TException)ex, command);
+    }
+
+    internal async Task ExecuteAsync(TException ex, IExecutedCommand command)
+    {
+        if (AsyncronousDelegate is not null)
+        {
+            await AsyncronousDelegate(ex, command);
+            return;
+        }
+
+        if (SyncronousDelegate is not null)
+        {
+            await Task.Run(() => SyncronousDelegate(ex, command));
+            return;
+        }
     }
 }

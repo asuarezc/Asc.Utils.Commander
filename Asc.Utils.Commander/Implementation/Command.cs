@@ -22,13 +22,14 @@ internal abstract class CommandBase(
 
         Type exType = ex.GetType();
 
-        IEnumerable<ExceptionCommandDelegate>? onTypedFailures = OnFailureDelegates.Where(it => it.ExceptionType.Equals(exType));
+        IEnumerable<ExceptionCommandDelegate>? onTypedFailures = OnFailureDelegates
+            .Where(it => it.ExceptionType is not null && it.ExceptionType.Equals(exType));
 
         if (onTypedFailures is null || !onTypedFailures.Any())
             return;
 
         foreach (var onTypedFailure in onTypedFailures.Where(it => it.CanExecute()))
-            await onTypedFailure.ExecuteAsync(ex);
+            await onTypedFailure.RunAsync(ex);
     }
 
     protected async Task ManageExceptionAsync(Exception ex, List<DefaultExceptionCommandDelegate> delegates, TimeSpan jobExecutionTime)
@@ -46,7 +47,7 @@ internal abstract class CommandBase(
         ExecutedCommand executedCommand = new(jobExecutionTime, ExecutedCommandResult.Failed, Id);
 
         foreach (var onTypedFailure in onTypedFailures.Where(it => it.CanExecute()))
-            await onTypedFailure.ExecuteAsync(ex, executedCommand);
+            await onTypedFailure.RunAsync(ex, executedCommand);
     }
 
     internal virtual Task RunAsync(CommandProcessorConfiguration configuration)
