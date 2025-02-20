@@ -6,28 +6,35 @@ internal class SequentialCommandProcessor : ICommandProcessor
 {
     private readonly CommandProcessorConfiguration? configuration = null;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
-    private Task? proccessFirstCommandTask = null;
+    private Task? processUntilQueueIsEmptyTask = null;
+
+    #region ICommandProcessor implementation
 
     public CommandExecutionMode ExecutionMode => CommandExecutionMode.Sequential;
 
-    public bool IsRunning { get; private set; } = false;
+    public bool IsRunning => processUntilQueueIsEmptyTask is not null && processUntilQueueIsEmptyTask.Status == TaskStatus.Running;
 
     public event EventHandler<bool>? IsRunningChanged;
+
+    public void ProcessCommand(ICommand command)
+    {
+        pendingCommands.Enqueue(command);
+
+        if (!IsRunning)
+        {
+            IsRunningChanged?.Invoke(this, true);
+            processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmpty);
+        }
+    }
+
+    #endregion
 
     internal SequentialCommandProcessor(CommandProcessorConfiguration configuration)
     {
         this.configuration = configuration;
     }
 
-    public void ProcessCommand(ICommand command)
-    {
-        pendingCommands.Enqueue(command);
-
-        if (proccessFirstCommandTask is null || proccessFirstCommandTask.IsCompleted)
-            proccessFirstCommandTask = Task.Run(ProccessFirstCommand);
-    }
-
-    private async Task ProccessFirstCommand()
+    private async Task ProcessUntilQueueIsEmpty()
     {
         if (configuration is null)
             throw new InvalidOperationException("Cannot process command without a configuration");
@@ -41,20 +48,11 @@ internal class SequentialCommandProcessor : ICommandProcessor
         if (command is not CommandBase commandBase)
             throw new InvalidOperationException("Cannot process a null command");
 
-        IsRunning = true;
-        IsRunningChanged?.Invoke(this, true);
-
-        try
-        {
-            await commandBase.RunAsync(configuration);
-        }
-        finally
-        {
-            IsRunning = false;
-            IsRunningChanged?.Invoke(this, false);
-        }
+        await commandBase.RunAsync(configuration);
 
         if (!pendingCommands.IsEmpty)
-            await ProccessFirstCommand();
+            await ProcessUntilQueueIsEmpty();
+
+        IsRunningChanged?.Invoke(this, false);
     }
 }
