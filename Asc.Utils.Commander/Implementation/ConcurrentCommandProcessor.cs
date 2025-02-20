@@ -3,7 +3,8 @@ using System.Collections.Concurrent;
 
 namespace Asc.Utils.Commander.Implementation;
 
-internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguration configuration) : ICommandProcessor
+internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguration configuration)
+    : ICommandProcessor
 {
     private readonly ConcurrentCommandProcessorConfiguration? configuration = configuration;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
@@ -19,7 +20,9 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
 
     public CommandExecutionMode ExecutionMode => CommandExecutionMode.Concurrent;
 
-    public bool IsRunning => processUntilQueueIsEmptyTask is not null && processUntilQueueIsEmptyTask.Status == TaskStatus.Running;
+    public bool IsRunning =>
+        processUntilQueueIsEmptyTask is not null
+        && processUntilQueueIsEmptyTask.Status == TaskStatus.Running;
 
     public event EventHandler<bool>? IsRunningChanged;
 

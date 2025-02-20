@@ -97,7 +97,7 @@ internal class Command(
             if (stopwatch.IsRunning)
                 stopwatch.Stop();
 
-            ExecutedCommand executedCommand = new(stopwatch.Elapsed, ExecutedCommandResult.Succeeded, Id);
+            ExecutedCommand executedCommand = new(stopwatch.Elapsed, success ? ExecutedCommandResult.Succeeded : ExecutedCommandResult.Failed, Id);
 
             if (success)
             {
@@ -160,7 +160,7 @@ internal class Command<TResult>(
             if (stopwatch.IsRunning)
                 stopwatch.Stop();
 
-            ExecutedCommand executedCommand = new(stopwatch.Elapsed, ExecutedCommandResult.Succeeded, Id);
+            ExecutedCommand executedCommand = new(stopwatch.Elapsed, success ? ExecutedCommandResult.Succeeded : ExecutedCommandResult.Failed, Id);
 
             if (success)
             {

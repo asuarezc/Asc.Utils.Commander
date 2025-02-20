@@ -73,7 +73,7 @@ internal class CommandBuilder : ICommandBuilder
         ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
         CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
 
-        jobDelegate = new CommandDelegate(onFinally);
+        onFinallyDelegate = new CommandDelegate(onFinally);
 
         return this;
     }
@@ -83,7 +83,7 @@ internal class CommandBuilder : ICommandBuilder
         ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
         CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
 
-        jobDelegate = new CommandDelegate(onFinally);
+        onFinallyDelegate = new CommandDelegate(onFinally);
 
         return this;
     }
@@ -180,12 +180,22 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
 
     public ICommandBuilder<TResult> OnFinally(Action onFinally)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(jobDelegate);
+
+        onFinallyDelegate = new CommandDelegate(onFinally);
+
+        return this;
     }
 
     public ICommandBuilder<TResult> OnFinally(Func<Task> onFinally)
     {
-        throw new NotImplementedException();
+        ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(jobDelegate);
+
+        onFinallyDelegate = new CommandDelegate(onFinally);
+
+        return this;
     }
 
     public ICommandBuilder<TResult> SetId(string id)

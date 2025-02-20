@@ -6,7 +6,7 @@ public interface ICommander
 
     ICommandBuilder<TResult> GetCommandBuilder<TResult>();
 
-    ICommandProcessorBuilder GetSequentialCommandProcessorBuilder();
+    ISequentialCommandProcessorBuilder GetSequentialCommandProcessorBuilder();
 
-    ICommandProcessorBuilder GetConcurrentCommandProcessorBuilder();
+    IConcurrentCommandProcessorBuilder GetConcurrentCommandProcessorBuilder();
 }

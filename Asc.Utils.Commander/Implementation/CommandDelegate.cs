@@ -126,7 +126,7 @@ internal class ExceptionCommandDelegate<TException> : ExceptionCommandDelegate w
 
     internal Func<TException, Task>? AsyncronousDelegate { get; private set; }
 
-    internal ExceptionCommandDelegate(Action<TException> syncronousDelegate) : base(typeof(TException), (Action<Exception>)syncronousDelegate)
+    internal ExceptionCommandDelegate(Action<TException> syncronousDelegate) : base(typeof(TException), new Action<Exception>((Exception ex) => syncronousDelegate((TException)ex)))
     {
         SyncronousDelegate = syncronousDelegate;
     }

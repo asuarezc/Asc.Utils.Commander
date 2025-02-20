@@ -1,7 +1,5 @@
 ﻿namespace Asc.Utils.Commander.Implementation;
 
-
-
 internal class CommandProcessorConfiguration
 {
     internal DefaultCommandDelegate? OnBeforeJobDelegate { get; set; } = null;

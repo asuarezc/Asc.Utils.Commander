@@ -12,7 +12,9 @@ internal class SequentialCommandProcessor : ICommandProcessor
 
     public CommandExecutionMode ExecutionMode => CommandExecutionMode.Sequential;
 
-    public bool IsRunning => processUntilQueueIsEmptyTask is not null && processUntilQueueIsEmptyTask.Status == TaskStatus.Running;
+    public bool IsRunning =>
+        processUntilQueueIsEmptyTask is not null
+        && processUntilQueueIsEmptyTask.Status == TaskStatus.Running;
 
     public event EventHandler<bool>? IsRunningChanged;
 
