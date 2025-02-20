@@ -1,8 +1,8 @@
 ﻿namespace Asc.Utils.Commander.Implementation;
 
-internal static class CommandBuilderValidator
+internal static class CommandProcessorBuilderValidator
 {
-    internal static void ThrowIfThereIsAlreadyADelegateForThat<TException>(List<ExceptionCommandDelegate> delegates)
+    internal static void ThrowIfThereIsAlreadyADelegateForThat<TException>(List<DefaultExceptionCommandDelegate> delegates)
     {
         string? typeFullName = typeof(TException).FullName;
 
@@ -18,21 +18,21 @@ internal static class CommandBuilderValidator
         }
     }
 
-    internal static void ThrowIfThereIsAlreadyADelegateForThat<TResult>(CommandOnSuccessDelegate<TResult>? @delegate)
+    internal static void ThrowIfThereIsAlreadyADelegateForThat(DefaultCommandDelegate? @delegate)
     {
         if (@delegate is not null)
             throw new InvalidOperationException("There is already a delegate for that");
     }
 
-    internal static void ThrowIfThereIsAlreadyADelegateForThat(CommandDelegate? @delegate)
+    internal static void ThrowIfThereIsAlreadyADelegateForThat(DefaultExecutedCommandDelegate? @delegate)
     {
         if (@delegate is not null)
             throw new InvalidOperationException("There is already a delegate for that");
     }
 
-    internal static void ThrowIfThereIsAlreadyADelegateForThat<TResult>(CommandJobDelegate<TResult>? @delegate)
+    internal static void ThrowIfThereIsAlreadyADelegateForThat(int? maxThreads)
     {
-        if (@delegate is not null)
-            throw new InvalidOperationException("There is already a delegate for that");
+        if (maxThreads.HasValue)
+            throw new InvalidOperationException("There is already a number of threads limit");
     }
 }

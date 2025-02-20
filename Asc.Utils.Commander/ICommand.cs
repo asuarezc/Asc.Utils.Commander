@@ -3,29 +3,11 @@
 public interface ICommand
 {
     string Id { get; }
-
-    bool JobIsAsyncronous { get; }
-
-    bool HasOnSuccesDelegate { get; }
-
-    bool HasOnSuccesAsyncronousDelegate { get; }
-
-    bool HasOnSuccesSyncronousDelegate { get; }
-
-    bool HasOnFailureDelegates { get; }
 }
 
-public interface ICommand<TResult>
+public interface IExecutedCommand : ICommand
 {
-    string Id { get; }
+    TimeSpan JobElapsedTime { get; }
 
-    bool JobIsAsyncronous { get; }
-
-    bool HasOnSuccesDelegate { get; }
-
-    bool HasOnSuccesAsyncronousDelegate { get; }
-
-    bool HasOnSuccesSyncronousDelegate { get; }
-
-    bool HasOnFailureDelegates { get; }
+    ExecutedCommandResult CommandResult { get; }
 }

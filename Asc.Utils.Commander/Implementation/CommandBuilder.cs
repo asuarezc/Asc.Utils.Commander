@@ -5,23 +5,13 @@ internal class CommandBuilder : ICommandBuilder
     private string? id;
     private CommandDelegate? jobDelegate = null;
     private CommandDelegate? onSuccessDelegate = null;
+    private CommandDelegate? onFinallyDelegate = null;
     private readonly List<ExceptionCommandDelegate> onFailureDelegates = [];
-
-    public ICommand Build()
-    {
-        if (jobDelegate is null)
-            throw new InvalidOperationException("Job delegate is mandatory");
-
-        if (string.IsNullOrEmpty(id))
-            return new Command(jobDelegate, onSuccessDelegate, onFailureDelegates);
-
-        return new Command(jobDelegate, onSuccessDelegate, onFailureDelegates, id);
-    }
 
     public ICommandBuilder Job(Action job)
     {
         ArgumentNullException.ThrowIfNull(job, nameof(job));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAJobDelegate(jobDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(jobDelegate);
 
         jobDelegate = new CommandDelegate(job);
 
@@ -31,29 +21,9 @@ internal class CommandBuilder : ICommandBuilder
     public ICommandBuilder Job(Func<Task> job)
     {
         ArgumentNullException.ThrowIfNull(job, nameof(job));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAJobDelegate(jobDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(jobDelegate);
 
         jobDelegate = new CommandDelegate(job);
-
-        return this;
-    }
-
-    public ICommandBuilder OnFailure<TException>(Action<TException> onFailure) where TException : Exception
-    {
-        ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAnOnFailureDelegateWithSameExceptionType<TException>(onFailureDelegates);
-
-        onFailureDelegates.Add(new ExceptionCommandDelegate<TException>(onFailure));
-
-        return this;
-    }
-
-    public ICommandBuilder OnFailure<TException>(Func<TException, Task> onFailure) where TException : Exception
-    {
-        ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAnOnFailureDelegateWithSameExceptionType<TException>(onFailureDelegates);
-
-        onFailureDelegates.Add(new ExceptionCommandDelegate<TException>(onFailure));
 
         return this;
     }
@@ -61,7 +31,7 @@ internal class CommandBuilder : ICommandBuilder
     public ICommandBuilder OnSuccess(Action onSuccess)
     {
         ArgumentNullException.ThrowIfNull(onSuccess, nameof(onSuccess));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAnOnSuccessDelegate(onSuccessDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onSuccessDelegate);
 
         onSuccessDelegate = new CommandDelegate(onSuccess);
 
@@ -71,9 +41,49 @@ internal class CommandBuilder : ICommandBuilder
     public ICommandBuilder OnSuccess(Func<Task> onSuccess)
     {
         ArgumentNullException.ThrowIfNull(onSuccess, nameof(onSuccess));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAnOnSuccessDelegate(onSuccessDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onSuccessDelegate);
 
         onSuccessDelegate = new CommandDelegate(onSuccess);
+
+        return this;
+    }
+
+    public ICommandBuilder OnFailure<TException>(Action<TException> onFailure) where TException : Exception
+    {
+        ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat<TException>(onFailureDelegates);
+
+        onFailureDelegates.Add(new ExceptionCommandDelegate<TException>(onFailure));
+
+        return this;
+    }
+
+    public ICommandBuilder OnFailure<TException>(Func<TException, Task> onFailure) where TException : Exception
+    {
+        ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat<TException>(onFailureDelegates);
+
+        onFailureDelegates.Add(new ExceptionCommandDelegate<TException>(onFailure));
+
+        return this;
+    }
+
+    public ICommandBuilder OnFinally(Action onFinally)
+    {
+        ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
+
+        jobDelegate = new CommandDelegate(onFinally);
+
+        return this;
+    }
+
+    public ICommandBuilder OnFinally(Func<Task> onFinally)
+    {
+        ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
+
+        jobDelegate = new CommandDelegate(onFinally);
 
         return this;
     }
@@ -87,6 +97,17 @@ internal class CommandBuilder : ICommandBuilder
 
         return this;
     }
+
+    public ICommand Build()
+    {
+        if (jobDelegate is null)
+            throw new InvalidOperationException("Job delegate is mandatory");
+
+        if (string.IsNullOrEmpty(id))
+            return new Command(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate);
+
+        return new Command(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate, id);
+    }
 }
 
 internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
@@ -95,22 +116,12 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
     private CommandJobDelegate<TResult>? jobDelegate = null;
     private CommandOnSuccessDelegate<TResult>? onSuccessDelegate = null;
     private readonly List<ExceptionCommandDelegate> onFailureDelegates = [];
-
-    public ICommand<TResult> Build()
-    {
-        if (jobDelegate is null)
-            throw new InvalidOperationException("Job delegate is mandatory");
-
-        if (string.IsNullOrEmpty(id))
-            return new Command<TResult>(jobDelegate, onSuccessDelegate, onFailureDelegates);
-
-        return new Command<TResult>(jobDelegate, onSuccessDelegate, onFailureDelegates, id);
-    }
+    private CommandDelegate? onFinallyDelegate = null;
 
     public ICommandBuilder<TResult> Job(Func<TResult> job)
     {
         ArgumentNullException.ThrowIfNull(job, nameof(job));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAJobDelegate(jobDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(jobDelegate);
 
         jobDelegate = new CommandJobDelegate<TResult>(job);
 
@@ -120,29 +131,9 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
     public ICommandBuilder<TResult> Job(Func<Task<TResult>> job)
     {
         ArgumentNullException.ThrowIfNull(job, nameof(job));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAJobDelegate(jobDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(jobDelegate);
 
         jobDelegate = new CommandJobDelegate<TResult>(job);
-
-        return this;
-    }
-
-    public ICommandBuilder<TResult> OnFailure<TException>(Action<TException> onFailure) where TException : Exception
-    {
-        ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAnOnFailureDelegateWithSameExceptionType<TException>(onFailureDelegates);
-
-        onFailureDelegates.Add(new ExceptionCommandDelegate<TException>(onFailure));
-
-        return this;
-    }
-
-    public ICommandBuilder<TResult> OnFailure<TException>(Func<TException, Task> onFailure) where TException : Exception
-    {
-        ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAnOnFailureDelegateWithSameExceptionType<TException>(onFailureDelegates);
-
-        onFailureDelegates.Add(new ExceptionCommandDelegate<TException>(onFailure));
 
         return this;
     }
@@ -150,7 +141,7 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
     public ICommandBuilder<TResult> OnSuccess(Action<TResult> onSuccess)
     {
         ArgumentNullException.ThrowIfNull(onSuccess, nameof(onSuccess));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAnOnSuccessDelegate(onSuccessDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onSuccessDelegate);
 
         onSuccessDelegate = new CommandOnSuccessDelegate<TResult>(onSuccess);
 
@@ -160,11 +151,41 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
     public ICommandBuilder<TResult> OnSuccess(Func<TResult, Task> onSuccess)
     {
         ArgumentNullException.ThrowIfNull(onSuccess, nameof(onSuccess));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyAnOnSuccessDelegate(onSuccessDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onSuccessDelegate);
 
         onSuccessDelegate = new CommandOnSuccessDelegate<TResult>(onSuccess);
 
         return this;
+    }
+
+    public ICommandBuilder<TResult> OnFailure<TException>(Action<TException> onFailure) where TException : Exception
+    {
+        ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat<TException>(onFailureDelegates);
+
+        onFailureDelegates.Add(new ExceptionCommandDelegate<TException>(onFailure));
+
+        return this;
+    }
+
+    public ICommandBuilder<TResult> OnFailure<TException>(Func<TException, Task> onFailure) where TException : Exception
+    {
+        ArgumentNullException.ThrowIfNull(onFailure, nameof(onFailure));
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat<TException>(onFailureDelegates);
+
+        onFailureDelegates.Add(new ExceptionCommandDelegate<TException>(onFailure));
+
+        return this;
+    }
+
+    public ICommandBuilder<TResult> OnFinally(Action onFinally)
+    {
+        throw new NotImplementedException();
+    }
+
+    public ICommandBuilder<TResult> OnFinally(Func<Task> onFinally)
+    {
+        throw new NotImplementedException();
     }
 
     public ICommandBuilder<TResult> SetId(string id)
@@ -175,5 +196,16 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
         this.id = id;
 
         return this;
+    }
+
+    public ICommand Build()
+    {
+        if (jobDelegate is null)
+            throw new InvalidOperationException("Job delegate is mandatory");
+
+        if (string.IsNullOrEmpty(id))
+            return new Command<TResult>(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate);
+
+        return new Command<TResult>(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate, id);
     }
 }

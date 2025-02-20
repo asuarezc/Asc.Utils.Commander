@@ -1,8 +1,10 @@
-﻿
+﻿using System.Diagnostics;
+
 namespace Asc.Utils.Commander.Implementation;
 
-internal class CommandBase(
+internal abstract class CommandBase(
     List<ExceptionCommandDelegate> onFailureDelegates,
+    CommandDelegate? onFinallyDelegate,
     string id = "")
 {
     public string Id { get; private set; } = id;
@@ -10,6 +12,8 @@ internal class CommandBase(
     public bool HasOnFailureDelegates => OnFailureDelegates is not null && OnFailureDelegates.Count > 0;
 
     internal List<ExceptionCommandDelegate> OnFailureDelegates { get; private set; } = onFailureDelegates;
+
+    internal CommandDelegate? OnFinallyDelegate { get; private set; } = onFinallyDelegate;
 
     protected async Task ManageExceptionAsync(Exception ex)
     {
@@ -26,41 +30,53 @@ internal class CommandBase(
         foreach (var onTypedFailure in onTypedFailures.Where(it => it.CanExecute()))
             await onTypedFailure.ExecuteAsync(ex);
     }
+
+    protected async Task ManageExceptionAsync(Exception ex, List<DefaultExceptionCommandDelegate> delegates, TimeSpan jobExecutionTime)
+    {
+        if (delegates is null || delegates.Count == 0)
+            return;
+
+        Type exType = ex.GetType();
+
+        IEnumerable<DefaultExceptionCommandDelegate>? onTypedFailures = delegates.Where(it => it.ExceptionType.Equals(exType));
+
+        if (onTypedFailures is null || !onTypedFailures.Any())
+            return;
+
+        ExecutedCommand executedCommand = new(jobExecutionTime, ExecutedCommandResult.Failed, Id);
+
+        foreach (var onTypedFailure in onTypedFailures.Where(it => it.CanExecute()))
+            await onTypedFailure.ExecuteAsync(ex, executedCommand);
+    }
+
+    internal virtual Task RunAsync(CommandProcessorConfiguration configuration)
+    {
+        throw new InvalidOperationException("Use a derived type");
+    }
 }
 
 internal class Command(
     CommandDelegate? jobDelegate,
     CommandDelegate? onSuccessDelegate,
     List<ExceptionCommandDelegate> onFailureDelegates,
-    string id = "") : CommandBase(onFailureDelegates, id), ICommand
+    CommandDelegate? onFinallyDelegate,
+    string id = "") : CommandBase(onFailureDelegates, onFinallyDelegate, id), ICommand
 {
-    public bool JobIsAsyncronous =>
-        JobDelegate is not null
-        && JobDelegate.AsyncronousDelegate is not null
-        && JobDelegate.SyncronousDelegate is null;
-
-    public bool HasOnSuccesDelegate => OnSuccessDelegate is not null;
-
-    public bool HasOnSuccesAsyncronousDelegate =>
-        OnSuccessDelegate is not null
-        && OnSuccessDelegate.AsyncronousDelegate is not null
-        && OnSuccessDelegate.SyncronousDelegate is null;
-
-    public bool HasOnSuccesSyncronousDelegate =>
-        OnSuccessDelegate is not null
-        && OnSuccessDelegate.SyncronousDelegate is not null
-        && OnSuccessDelegate.AsyncronousDelegate is null;
-
     internal CommandDelegate? JobDelegate { get; private set; } = jobDelegate;
 
     internal CommandDelegate? OnSuccessDelegate { get; private set; } = onSuccessDelegate;
 
-    internal async Task RunAsync()
+    internal override async Task RunAsync(CommandProcessorConfiguration configuration)
     {
         if (JobDelegate is null || !JobDelegate.CanExecute())
             return;
 
         bool success = true;
+
+        if (configuration.OnBeforeJobDelegate is not null && configuration.OnBeforeJobDelegate.CanExecute())
+            await configuration.OnBeforeJobDelegate.ExecuteAsync(this);
+
+        Stopwatch stopwatch = Stopwatch.StartNew();
 
         try
         {
@@ -68,12 +84,36 @@ internal class Command(
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
             success = false;
+
+            if (configuration.OnFailureDelegates is not null)
+                await ManageExceptionAsync(ex, configuration.OnFailureDelegates, stopwatch.Elapsed);
+
             await ManageExceptionAsync(ex);
         }
+        finally
+        {
+            if (stopwatch.IsRunning)
+                stopwatch.Stop();
 
-        if (success && OnSuccessDelegate is not null && OnSuccessDelegate.CanExecute())
-            await OnSuccessDelegate.ExecuteAsync();
+            ExecutedCommand executedCommand = new(stopwatch.Elapsed, ExecutedCommandResult.Succeeded, Id);
+
+            if (success)
+            {
+                if (configuration.OnSuccessDelegate is not null && configuration.OnSuccessDelegate.CanExecute())
+                    await configuration.OnSuccessDelegate.ExecuteAsync(executedCommand);
+
+                if (OnSuccessDelegate is not null && OnSuccessDelegate.CanExecute())
+                    await OnSuccessDelegate.ExecuteAsync();
+            }
+
+            if (configuration.OnFinallyDelegate is not null && configuration.OnFinallyDelegate.CanExecute())
+                await configuration.OnFinallyDelegate.ExecuteAsync(executedCommand);
+
+            if (OnFinallyDelegate is not null && OnFinallyDelegate.CanExecute())
+                await OnFinallyDelegate.ExecuteAsync();
+        }
     }
 }
 
@@ -81,30 +121,14 @@ internal class Command<TResult>(
     CommandJobDelegate<TResult>? jobDelegate,
     CommandOnSuccessDelegate<TResult>? onSuccessDelegate,
     List<ExceptionCommandDelegate> onFailureDelegates,
-    string id = "") : CommandBase(onFailureDelegates, id), ICommand<TResult>
+    CommandDelegate? onFinallyDelegate,
+    string id = "") : CommandBase(onFailureDelegates, onFinallyDelegate, id), ICommand
 {
-    public bool JobIsAsyncronous =>
-        JobDelegate is not null
-        && JobDelegate.AsyncronousDelegate is not null
-        && JobDelegate.SyncronousDelegate is null;
-
-    public bool HasOnSuccesDelegate => OnSuccessDelegate is not null;
-
-    public bool HasOnSuccesAsyncronousDelegate =>
-        OnSuccessDelegate is not null
-        && OnSuccessDelegate.AsyncronousDelegate is not null
-        && OnSuccessDelegate.SyncronousDelegate is null;
-
-    public bool HasOnSuccesSyncronousDelegate =>
-        OnSuccessDelegate is not null
-        && OnSuccessDelegate.SyncronousDelegate is not null
-        && OnSuccessDelegate.AsyncronousDelegate is null;
-
     internal CommandJobDelegate<TResult>? JobDelegate { get; private set; } = jobDelegate;
 
     internal CommandOnSuccessDelegate<TResult>? OnSuccessDelegate { get; private set; } = onSuccessDelegate;
 
-    internal async Task RunAsync()
+    internal override async Task RunAsync(CommandProcessorConfiguration configuration)
     {
         if (JobDelegate is null || !JobDelegate.CanExecute())
             return;
@@ -112,17 +136,67 @@ internal class Command<TResult>(
         bool success = true;
         TResult? result = default;
 
+        if (configuration.OnBeforeJobDelegate is not null && configuration.OnBeforeJobDelegate.CanExecute())
+            await configuration.OnBeforeJobDelegate.ExecuteAsync(this);
+
+        Stopwatch stopwatch = Stopwatch.StartNew();
+
         try
         {
             result = await JobDelegate.ExecuteAsync();
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
             success = false;
+
+            if (configuration.OnFailureDelegates is not null)
+                await ManageExceptionAsync(ex, configuration.OnFailureDelegates, stopwatch.Elapsed);
+
             await ManageExceptionAsync(ex);
         }
+        finally
+        {
+            if (stopwatch.IsRunning)
+                stopwatch.Stop();
 
-        if (success && OnSuccessDelegate is not null && OnSuccessDelegate.CanExecute() && result is not null)
-            await OnSuccessDelegate.ExecuteAsync(result);
+            ExecutedCommand executedCommand = new(stopwatch.Elapsed, ExecutedCommandResult.Succeeded, Id);
+
+            if (success)
+            {
+                if (configuration.OnSuccessDelegate is not null && configuration.OnSuccessDelegate.CanExecute())
+                    await configuration.OnSuccessDelegate.ExecuteAsync(executedCommand);
+
+                if (OnSuccessDelegate is not null && OnSuccessDelegate.CanExecute() && result is not null)
+                    await OnSuccessDelegate.ExecuteAsync(result);
+            }
+
+            if (configuration.OnFinallyDelegate is not null && configuration.OnFinallyDelegate.CanExecute())
+                await configuration.OnFinallyDelegate.ExecuteAsync(executedCommand);
+
+            if (OnFinallyDelegate is not null && OnFinallyDelegate.CanExecute())
+                await OnFinallyDelegate.ExecuteAsync();
+        }
     }
+}
+
+internal class ExecutedCommand : IExecutedCommand
+{
+    private string? id;
+
+    public ExecutedCommand(
+        TimeSpan jobElapsedTime,
+        ExecutedCommandResult commandResult,
+        string id)
+    {
+        JobElapsedTime = jobElapsedTime;
+        CommandResult = commandResult;
+        Id = id;
+    }
+
+    public TimeSpan JobElapsedTime { get; private set; }
+
+    public ExecutedCommandResult CommandResult { get; private set; }
+
+    public string Id { get => id is not null ? id : string.Empty; private set => id = value; }
 }

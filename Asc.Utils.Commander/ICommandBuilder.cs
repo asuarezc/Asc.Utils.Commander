@@ -14,6 +14,10 @@ public interface ICommandBuilder
 
     ICommandBuilder OnFailure<TException>(Func<TException, Task> onFailure) where TException : Exception;
 
+    ICommandBuilder OnFinally(Action onFinally);
+
+    ICommandBuilder OnFinally(Func<Task> onFinally);
+
     ICommandBuilder SetId(string id);
 
     ICommand Build();
@@ -33,7 +37,11 @@ public interface ICommandBuilder<TResult>
 
     ICommandBuilder<TResult> OnFailure<TException>(Func<TException, Task> onFailure) where TException : Exception;
 
+    ICommandBuilder<TResult> OnFinally(Action onFinally);
+
+    ICommandBuilder<TResult> OnFinally(Func<Task> onFinally);
+
     ICommandBuilder<TResult> SetId(string id);
 
-    ICommand<TResult> Build();
+    ICommand Build();
 } 
