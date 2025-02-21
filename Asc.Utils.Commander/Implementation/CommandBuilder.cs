@@ -184,7 +184,7 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
     public ICommandBuilder<TResult> OnFinally(Action onFinally)
     {
         ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(jobDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
 
         onFinallyDelegate = new CommandDelegate(onFinally);
 
@@ -194,7 +194,7 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
     public ICommandBuilder<TResult> OnFinally(Func<Task> onFinally)
     {
         ArgumentNullException.ThrowIfNull(onFinally, nameof(onFinally));
-        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(jobDelegate);
+        CommandBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onFinallyDelegate);
 
         onFinallyDelegate = new CommandDelegate(onFinally);
 
@@ -218,6 +218,9 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
     {
         if (jobDelegate is null)
             throw new InvalidOperationException("Job delegate is mandatory");
+
+        if (onSuccessDelegate is null)
+            throw new InvalidOperationException("On success delegate is mandatory");
 
         if (string.IsNullOrEmpty(id))
             throw new InvalidOperationException("Id is mandatory");

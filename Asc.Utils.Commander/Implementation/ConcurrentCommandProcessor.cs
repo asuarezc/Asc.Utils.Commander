@@ -5,34 +5,48 @@ namespace Asc.Utils.Commander.Implementation;
 internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguration configuration)
     : ICommandProcessor
 {
+    private static readonly Lock locker = new();
+    private static readonly ReaderWriterLockSlim lockerForMaxConcurrentCommands = new(LockRecursionPolicy.NoRecursion);
+
     private int numberOfProcessingCommands = 0;
     private readonly ConcurrentCommandProcessorConfiguration? configuration = configuration;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
-
     private Task? processUntilQueueIsEmptyTask = null;
 
-    #region ICommandProcessor implementation
+    internal int NumberOfProcessingCommands
+    {
+        get
+        {
+            lockerForMaxConcurrentCommands.EnterReadLock();
 
-    public CommandExecutionMode ExecutionMode => CommandExecutionMode.Concurrent;
-
-    public bool IsRunning =>
-        processUntilQueueIsEmptyTask is not null
-        && processUntilQueueIsEmptyTask.Status == TaskStatus.Running;
-
-    public event EventHandler<bool>? IsRunningChanged;
+            try { return numberOfProcessingCommands; }
+            finally { lockerForMaxConcurrentCommands.ExitReadLock(); }
+        }
+        set
+        {
+            lockerForMaxConcurrentCommands.EnterWriteLock();
+            
+            try { numberOfProcessingCommands = value; }
+            finally { lockerForMaxConcurrentCommands.ExitWriteLock(); }
+        }
+    }
 
     public void ProcessCommand(ICommand command)
     {
         pendingCommands.Enqueue(command);
 
-        if (!IsRunning)
+        locker.Enter();
+
+        try
         {
-            IsRunningChanged?.Invoke(this, true);
-            processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmptyAsync);
+            if (processUntilQueueIsEmptyTask is null || processUntilQueueIsEmptyTask.Status != TaskStatus.Running)
+                processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmptyAsync);
+        }
+        finally
+        {
+            locker.Exit();
         }
     }
-
-    #endregion
 
     private async Task ProcessUntilQueueIsEmptyAsync()
     {
@@ -52,7 +66,7 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
 
             _ = Task.Run(async () =>
             {
-                numberOfProcessingCommands++;
+                NumberOfProcessingCommands++;
 
                 try
                 {
@@ -60,14 +74,12 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
                 }
                 finally
                 {
-                    numberOfProcessingCommands--;
+                    NumberOfProcessingCommands--;
                 }
             });
-        } while (!pendingCommands.IsEmpty || numberOfProcessingCommands <= configuration.MaxNumberOfCommandsProcessedSimultaneosly);
+        } while (!pendingCommands.IsEmpty || NumberOfProcessingCommands <= configuration.MaxNumberOfCommandsProcessedSimultaneosly);
 
         if (!pendingCommands.IsEmpty)
             await ProcessUntilQueueIsEmptyAsync();
-
-        IsRunningChanged?.Invoke(this, false);
     }
 }

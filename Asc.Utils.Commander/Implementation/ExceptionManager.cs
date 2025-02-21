@@ -36,20 +36,20 @@ internal static class ExceptionManager
                     ThrowInvalidDueToNoDelegateFoundForCurrent(exception);
                 else
                 {
-                    if (exceptionDelegate is not null)
-                        await exceptionDelegate.RunAsync(exception);
-
                     if (defaultExceptionDelegate is not null)
                         await defaultExceptionDelegate.RunAsync(exception, executedCommand);
+
+                    if (exceptionDelegate is not null)
+                        await exceptionDelegate.RunAsync(exception);
                 }
             }
             else
             {
-                if (derivedExceptionTypeDelegate is not null)
-                    await derivedExceptionTypeDelegate.RunAsync(exception);
-
                 if (defaultDerivedExceptionTypeDelegate is not null)
                     await defaultDerivedExceptionTypeDelegate.RunAsync(exception, executedCommand);
+
+                if (derivedExceptionTypeDelegate is not null)
+                    await derivedExceptionTypeDelegate.RunAsync(exception);
             }
         }
         //if exception is an Exception class instance
@@ -59,11 +59,11 @@ internal static class ExceptionManager
                 ThrowInvalidDueToNoDelegateFoundForCurrent(exception);
             else
             {
-                if (exceptionDelegate is not null)
-                    await exceptionDelegate.RunAsync(exception);
-
                 if (defaultExceptionDelegate is not null)
                     await defaultExceptionDelegate.RunAsync(exception, executedCommand);
+
+                if (exceptionDelegate is not null)
+                    await exceptionDelegate.RunAsync(exception);
             }
         }
     }

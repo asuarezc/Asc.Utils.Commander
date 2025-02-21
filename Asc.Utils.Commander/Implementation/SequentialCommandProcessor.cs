@@ -4,39 +4,35 @@ namespace Asc.Utils.Commander.Implementation;
 
 internal class SequentialCommandProcessor : ICommandProcessor
 {
+    private static readonly Lock locker = new();
+
     private readonly CommandProcessorConfiguration? configuration = null;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
     private Task? processUntilQueueIsEmptyTask = null;
-
-    #region ICommandProcessor implementation
-
-    public CommandExecutionMode ExecutionMode => CommandExecutionMode.Sequential;
-
-    public bool IsRunning =>
-        processUntilQueueIsEmptyTask is not null
-        && processUntilQueueIsEmptyTask.Status == TaskStatus.Running;
-
-    public event EventHandler<bool>? IsRunningChanged;
 
     public void ProcessCommand(ICommand command)
     {
         pendingCommands.Enqueue(command);
 
-        if (!IsRunning)
+        locker.Enter();
+
+        try
         {
-            IsRunningChanged?.Invoke(this, true);
-            processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmpty);
+            if (processUntilQueueIsEmptyTask is null || processUntilQueueIsEmptyTask.Status != TaskStatus.Running)
+                processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmptyAsync);
+        }
+        finally
+        {
+            locker.Exit();
         }
     }
-
-    #endregion
 
     internal SequentialCommandProcessor(CommandProcessorConfiguration configuration)
     {
         this.configuration = configuration;
     }
 
-    private async Task ProcessUntilQueueIsEmpty()
+    private async Task ProcessUntilQueueIsEmptyAsync()
     {
         if (configuration is null)
             throw new InvalidOperationException("Cannot process command without a configuration");
@@ -53,8 +49,6 @@ internal class SequentialCommandProcessor : ICommandProcessor
         await commandBase.RunAsync(configuration);
 
         if (!pendingCommands.IsEmpty)
-            await ProcessUntilQueueIsEmpty();
-
-        IsRunningChanged?.Invoke(this, false);
+            await ProcessUntilQueueIsEmptyAsync();
     }
 }
