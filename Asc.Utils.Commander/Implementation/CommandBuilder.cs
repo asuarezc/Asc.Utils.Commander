@@ -7,6 +7,7 @@ internal class CommandBuilder : ICommandBuilder
     private CommandDelegate? onSuccessDelegate = null;
     private CommandDelegate? onFinallyDelegate = null;
     private readonly List<ExceptionCommandDelegate> onFailureDelegates = [];
+    private readonly Dictionary<string, string> commandParameters = [];
 
     public ICommandBuilder Job(Action job)
     {
@@ -88,6 +89,17 @@ internal class CommandBuilder : ICommandBuilder
         return this;
     }
 
+    public ICommandBuilder AddOrReplaceParameter(string key, string value)
+    {
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        if (!commandParameters.TryAdd(key, value))
+            commandParameters[key] = value;
+
+        return this;
+    }
+
     public ICommandBuilder SetId(string id)
     {
         if (string.IsNullOrEmpty(id))
@@ -109,7 +121,7 @@ internal class CommandBuilder : ICommandBuilder
         if (string.IsNullOrEmpty(id))
             throw new InvalidOperationException("Id is mandatory");
 
-        return new Command(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate, id);
+        return new Command(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate, id, commandParameters);
     }
 }
 
@@ -118,8 +130,9 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
     private string? id;
     private CommandJobDelegate<TResult>? jobDelegate = null;
     private CommandOnSuccessDelegate<TResult>? onSuccessDelegate = null;
-    private readonly List<ExceptionCommandDelegate> onFailureDelegates = [];
     private CommandDelegate? onFinallyDelegate = null;
+    private readonly List<ExceptionCommandDelegate> onFailureDelegates = [];
+    private readonly Dictionary<string, string> commandParameters = [];
 
     public ICommandBuilder<TResult> Job(Func<TResult> job)
     {
@@ -201,6 +214,17 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
         return this;
     }
 
+    public ICommandBuilder<TResult> AddOrReplaceParameter(string key, string value)
+    {
+        if (string.IsNullOrEmpty(key))
+            throw new ArgumentNullException(nameof(key));
+
+        if (!commandParameters.TryAdd(key, value))
+            commandParameters[key] = value;
+
+        return this;
+    }
+
     public ICommandBuilder<TResult> SetId(string id)
     {
         if (string.IsNullOrEmpty(id))
@@ -225,6 +249,6 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
         if (string.IsNullOrEmpty(id))
             throw new InvalidOperationException("Id is mandatory");
 
-        return new Command<TResult>(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate, id);
+        return new Command<TResult>(jobDelegate, onSuccessDelegate, onFailureDelegates, onFinallyDelegate, id, commandParameters);
     }
 }

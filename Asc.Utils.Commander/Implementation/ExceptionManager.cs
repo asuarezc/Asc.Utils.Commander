@@ -30,26 +30,20 @@ internal static class ExceptionManager
             DefaultExceptionCommandDelegate? defaultDerivedExceptionTypeDelegate = defaultDelegates?
                 .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType.Equals(exType));
 
-            if (derivedExceptionTypeDelegate is null && defaultDerivedExceptionTypeDelegate is null)
-            {
-                if (exceptionDelegate is null && defaultExceptionDelegate is null)
-                    ThrowInvalidDueToNoDelegateFoundForCurrent(exception);
-                else
-                {
-                    if (defaultExceptionDelegate is not null)
-                        await defaultExceptionDelegate.RunAsync(exception, executedCommand);
-
-                    if (exceptionDelegate is not null)
-                        await exceptionDelegate.RunAsync(exception);
-                }
-            }
+            if (derivedExceptionTypeDelegate is not null)
+                await derivedExceptionTypeDelegate.RunAsync(exception);
             else
             {
-                if (defaultDerivedExceptionTypeDelegate is not null)
-                    await defaultDerivedExceptionTypeDelegate.RunAsync(exception, executedCommand);
+                if (exceptionDelegate is not null)
+                    await exceptionDelegate.RunAsync(exception);
+            }
 
-                if (derivedExceptionTypeDelegate is not null)
-                    await derivedExceptionTypeDelegate.RunAsync(exception);
+            if (defaultDerivedExceptionTypeDelegate is not null)
+                await defaultDerivedExceptionTypeDelegate.RunAsync(exception, executedCommand);
+            else
+            {
+                if (defaultExceptionDelegate is not null)
+                    await defaultExceptionDelegate.RunAsync(exception, executedCommand);
             }
         }
         //if exception is an Exception class instance
@@ -59,11 +53,11 @@ internal static class ExceptionManager
                 ThrowInvalidDueToNoDelegateFoundForCurrent(exception);
             else
             {
-                if (defaultExceptionDelegate is not null)
-                    await defaultExceptionDelegate.RunAsync(exception, executedCommand);
-
                 if (exceptionDelegate is not null)
                     await exceptionDelegate.RunAsync(exception);
+
+                if (defaultExceptionDelegate is not null)
+                    await defaultExceptionDelegate.RunAsync(exception, executedCommand);
             }
         }
     }

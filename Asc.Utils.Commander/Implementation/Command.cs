@@ -5,11 +5,16 @@ namespace Asc.Utils.Commander.Implementation;
 internal abstract class CommandBase(
     List<ExceptionCommandDelegate> onFailureDelegates,
     CommandDelegate? onFinallyDelegate,
-    string id)
+    string id,
+    Dictionary<string, string>? commandParameters = null)
 {
     public string Id { get; private set; } = id;
 
     public bool HasOnFailureDelegates => OnFailureDelegates is not null && OnFailureDelegates.Count > 0;
+
+    public IReadOnlyDictionary<string, string> Parameters => commandParameters.AsReadOnly();
+
+    internal Dictionary<string, string> commandParameters = commandParameters ?? [];
 
     internal List<ExceptionCommandDelegate> OnFailureDelegates { get; private set; } = onFailureDelegates;
 
@@ -26,7 +31,9 @@ internal class Command(
     CommandDelegate? onSuccessDelegate,
     List<ExceptionCommandDelegate> onFailureDelegates,
     CommandDelegate? onFinallyDelegate,
-    string id) : CommandBase(onFailureDelegates, onFinallyDelegate, id), ICommand
+    string id,
+    Dictionary<string, string>? commandParameters = null)
+    : CommandBase(onFailureDelegates, onFinallyDelegate, id, commandParameters), ICommand
 {
     internal CommandDelegate? JobDelegate { get; private set; } = jobDelegate;
 
@@ -58,7 +65,7 @@ internal class Command(
                 delegates: OnFailureDelegates,
                 defaultDelegates: configuration.OnFailureDelegates,
                 jobElapsedTime: stopwatch.Elapsed,
-                id: Id
+                Id
             );
         }
         finally
@@ -69,23 +76,24 @@ internal class Command(
             ExecutedCommand executedCommand = new(
                 stopwatch.Elapsed,
                 success ? ExecutedCommandResult.Succeeded : ExecutedCommandResult.Failed,
-                Id
+                Id,
+                commandParameters
             );
 
             if (success)
             {
-                if (configuration.OnSuccessDelegate is not null && configuration.OnSuccessDelegate.CanExecute())
-                    await configuration.OnSuccessDelegate.ExecuteAsync(executedCommand);
-
                 if (OnSuccessDelegate is not null && OnSuccessDelegate.CanExecute())
                     await OnSuccessDelegate.ExecuteAsync();
-            }
 
-            if (configuration.OnFinallyDelegate is not null && configuration.OnFinallyDelegate.CanExecute())
-                await configuration.OnFinallyDelegate.ExecuteAsync(executedCommand);
+                if (configuration.OnSuccessDelegate is not null && configuration.OnSuccessDelegate.CanExecute())
+                    await configuration.OnSuccessDelegate.ExecuteAsync(executedCommand);
+            }
 
             if (OnFinallyDelegate is not null && OnFinallyDelegate.CanExecute())
                 await OnFinallyDelegate.ExecuteAsync();
+
+            if (configuration.OnFinallyDelegate is not null && configuration.OnFinallyDelegate.CanExecute())
+                await configuration.OnFinallyDelegate.ExecuteAsync(executedCommand);
         }
     }
 }
@@ -95,7 +103,9 @@ internal class Command<TResult>(
     CommandOnSuccessDelegate<TResult>? onSuccessDelegate,
     List<ExceptionCommandDelegate> onFailureDelegates,
     CommandDelegate? onFinallyDelegate,
-    string id) : CommandBase(onFailureDelegates, onFinallyDelegate, id), ICommand
+    string id,
+    Dictionary<string, string>? commandParameters = null)
+    : CommandBase(onFailureDelegates, onFinallyDelegate, id, commandParameters), ICommand
 {
     internal CommandJobDelegate<TResult>? JobDelegate { get; private set; } = jobDelegate;
 
@@ -139,23 +149,24 @@ internal class Command<TResult>(
             ExecutedCommand executedCommand = new(
                 stopwatch.Elapsed,
                 success ? ExecutedCommandResult.Succeeded : ExecutedCommandResult.Failed,
-                Id
+                Id,
+                commandParameters
             );
 
             if (success)
             {
-                if (configuration.OnSuccessDelegate is not null && configuration.OnSuccessDelegate.CanExecute())
-                    await configuration.OnSuccessDelegate.ExecuteAsync(executedCommand);
-
                 if (OnSuccessDelegate is not null && OnSuccessDelegate.CanExecute() && result is not null)
                     await OnSuccessDelegate.ExecuteAsync(result);
-            }
 
-            if (configuration.OnFinallyDelegate is not null && configuration.OnFinallyDelegate.CanExecute())
-                await configuration.OnFinallyDelegate.ExecuteAsync(executedCommand);
+                if (configuration.OnSuccessDelegate is not null && configuration.OnSuccessDelegate.CanExecute())
+                    await configuration.OnSuccessDelegate.ExecuteAsync(executedCommand);
+            }
 
             if (OnFinallyDelegate is not null && OnFinallyDelegate.CanExecute())
                 await OnFinallyDelegate.ExecuteAsync();
+
+            if (configuration.OnFinallyDelegate is not null && configuration.OnFinallyDelegate.CanExecute())
+                await configuration.OnFinallyDelegate.ExecuteAsync(executedCommand);
         }
     }
 }
@@ -167,12 +178,18 @@ internal class ExecutedCommand : IExecutedCommand
     public ExecutedCommand(
         TimeSpan jobElapsedTime,
         ExecutedCommandResult commandResult,
-        string id)
+        string id,
+        Dictionary<string, string>? commandParameters = null)
     {
         JobElapsedTime = jobElapsedTime;
         CommandResult = commandResult;
         Id = id;
+        this.commandParameters = commandParameters ?? [];
     }
+
+    internal Dictionary<string, string> commandParameters;
+
+    public IReadOnlyDictionary<string, string> Parameters => commandParameters.AsReadOnly();
 
     public TimeSpan JobElapsedTime { get; private set; }
 

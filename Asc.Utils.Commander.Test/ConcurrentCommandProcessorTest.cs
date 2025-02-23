@@ -3,14 +3,53 @@ using System.Text;
 
 namespace Asc.Utils.Commander.Test;
 
-public class SequentialCommandProcessorTest
+public class ConcurrentCommandProcessorTest
 {
+    [Fact]
+    public async Task ConcurrentExecution()
+    {
+        Lock locker = new();
+        string result = string.Empty;
+        TimeSpan total = TimeSpan.Zero;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .SetMaxNumberOfCommandsProcessedSimultaneosly(20)
+            .OnAnyJobSuccess((IExecutedCommand) =>
+            {
+                locker.Enter();
+
+                try { total += IExecutedCommand.JobElapsedTime; }
+                finally { locker.Exit(); }
+            })
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder()
+            .Job(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        for (int i = 0; i <= 9; i++)
+            commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(TimeSpan.FromSeconds(2));
+
+        Assert.True(total > TimeSpan.FromSeconds(10));
+        Assert.True(total < TimeSpan.FromSeconds(11));
+    }
+
     [Fact]
     public async Task MostBasicIntendedUse()
     {
         string result = string.Empty;
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
                 Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
@@ -37,7 +76,7 @@ public class SequentialCommandProcessorTest
     {
         string result = string.Empty;
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
                 Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
@@ -53,7 +92,7 @@ public class SequentialCommandProcessorTest
             {
                 result = jobResult;
             })
-            .SetId(nameof (command))
+            .SetId(nameof(command))
             .Build();
 
         commandProcessor.ProcessCommand(command);
@@ -68,7 +107,7 @@ public class SequentialCommandProcessorTest
     {
         string result = string.Empty;
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
                 Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
@@ -95,7 +134,7 @@ public class SequentialCommandProcessorTest
     {
         int result = 0;
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
                 Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
@@ -126,7 +165,7 @@ public class SequentialCommandProcessorTest
     {
         string result = string.Empty;
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
                 result = command.Id;
@@ -153,7 +192,7 @@ public class SequentialCommandProcessorTest
     {
         StringBuilder builder = new();
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnBeforeAnyJob((ICommand command) =>
             {
                 builder.Append('A');
@@ -200,7 +239,7 @@ public class SequentialCommandProcessorTest
     {
         StringBuilder builder = new();
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnBeforeAnyJob((ICommand command) =>
             {
                 builder.Append('A');
@@ -244,7 +283,7 @@ public class SequentialCommandProcessorTest
     {
         StringBuilder builder = new();
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnBeforeAnyJob((ICommand command) =>
             {
                 builder.Append('A');
@@ -292,7 +331,7 @@ public class SequentialCommandProcessorTest
     {
         StringBuilder builder = new();
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnBeforeAnyJob((ICommand command) =>
             {
                 builder.Append('A');
@@ -344,7 +383,7 @@ public class SequentialCommandProcessorTest
     {
         StringBuilder builder = new();
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnBeforeAnyJob(async (ICommand command) =>
             {
                 await Task.Run(() => builder.Append('A'));
@@ -392,7 +431,7 @@ public class SequentialCommandProcessorTest
         string result = string.Empty;
         TimeSpan? elapsedTime = null;
 
-        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobSuccess((IExecutedCommand command) =>
             {
                 result = command.Parameters.FirstOrDefault().Value;

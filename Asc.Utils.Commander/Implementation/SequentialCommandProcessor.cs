@@ -5,7 +5,6 @@ namespace Asc.Utils.Commander.Implementation;
 internal class SequentialCommandProcessor : ICommandProcessor
 {
     private static readonly Lock locker = new();
-
     private readonly CommandProcessorConfiguration? configuration = null;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
     private Task? processUntilQueueIsEmptyTask = null;
@@ -18,8 +17,10 @@ internal class SequentialCommandProcessor : ICommandProcessor
 
         try
         {
-            if (processUntilQueueIsEmptyTask is null || processUntilQueueIsEmptyTask.Status != TaskStatus.Running)
-                processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmptyAsync);
+            if (processUntilQueueIsEmptyTask is not null)
+                return;
+
+            processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmptyAsync);
         }
         finally
         {
@@ -50,5 +51,7 @@ internal class SequentialCommandProcessor : ICommandProcessor
 
         if (!pendingCommands.IsEmpty)
             await ProcessUntilQueueIsEmptyAsync();
+
+        processUntilQueueIsEmptyTask = null;
     }
 }

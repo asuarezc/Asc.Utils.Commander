@@ -3,6 +3,8 @@
 public interface ICommand
 {
     string Id { get; }
+
+    IReadOnlyDictionary<string, string> Parameters { get; }
 }
 
 public interface IExecutedCommand : ICommand

@@ -39,8 +39,10 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
 
         try
         {
-            if (processUntilQueueIsEmptyTask is null || processUntilQueueIsEmptyTask.Status != TaskStatus.Running)
-                processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmptyAsync);
+            if (processUntilQueueIsEmptyTask is not null)
+                return;
+
+            processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmptyAsync);
         }
         finally
         {
@@ -50,11 +52,11 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
 
     private async Task ProcessUntilQueueIsEmptyAsync()
     {
-        do
-        {
-            if (configuration is null)
-                throw new InvalidOperationException("Cannot process command without a configuration");
+        if (configuration is null)
+            throw new InvalidOperationException("Cannot process command without a configuration");
 
+        while (!pendingCommands.IsEmpty && NumberOfProcessingCommands < configuration.MaxNumberOfCommandsProcessedSimultaneosly)
+        {
             if (!pendingCommands.TryDequeue(out ICommand? command))
                 throw new InvalidOperationException("Cannot dequeue command");
 
@@ -77,9 +79,11 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
                     NumberOfProcessingCommands--;
                 }
             });
-        } while (!pendingCommands.IsEmpty || NumberOfProcessingCommands <= configuration.MaxNumberOfCommandsProcessedSimultaneosly);
+        }
 
         if (!pendingCommands.IsEmpty)
             await ProcessUntilQueueIsEmptyAsync();
+
+        processUntilQueueIsEmptyTask = null;
     }
 }
