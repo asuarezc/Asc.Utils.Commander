@@ -6,15 +6,15 @@ internal abstract class CommandBase(
     List<ExceptionCommandDelegate> onFailureDelegates,
     CommandDelegate? onFinallyDelegate,
     string id,
-    Dictionary<string, string>? commandParameters = null)
+    Dictionary<string, ICommandParameter>? commandParameters = null)
 {
     public string Id { get; private set; } = id;
 
     public bool HasOnFailureDelegates => OnFailureDelegates is not null && OnFailureDelegates.Count > 0;
 
-    public IReadOnlyDictionary<string, string> Parameters => commandParameters.AsReadOnly();
+    public IReadOnlyDictionary<string, ICommandParameter> Parameters => commandParameters.AsReadOnly();
 
-    internal Dictionary<string, string> commandParameters = commandParameters ?? [];
+    internal Dictionary<string, ICommandParameter> commandParameters = commandParameters ?? [];
 
     internal List<ExceptionCommandDelegate> OnFailureDelegates { get; private set; } = onFailureDelegates;
 
@@ -32,7 +32,7 @@ internal class Command(
     List<ExceptionCommandDelegate> onFailureDelegates,
     CommandDelegate? onFinallyDelegate,
     string id,
-    Dictionary<string, string>? commandParameters = null)
+    Dictionary<string, ICommandParameter>? commandParameters = null)
     : CommandBase(onFailureDelegates, onFinallyDelegate, id, commandParameters), ICommand
 {
     internal CommandDelegate? JobDelegate { get; private set; } = jobDelegate;
@@ -104,7 +104,7 @@ internal class Command<TResult>(
     List<ExceptionCommandDelegate> onFailureDelegates,
     CommandDelegate? onFinallyDelegate,
     string id,
-    Dictionary<string, string>? commandParameters = null)
+    Dictionary<string, ICommandParameter>? commandParameters = null)
     : CommandBase(onFailureDelegates, onFinallyDelegate, id, commandParameters), ICommand
 {
     internal CommandJobDelegate<TResult>? JobDelegate { get; private set; } = jobDelegate;
@@ -179,7 +179,7 @@ internal class ExecutedCommand : IExecutedCommand
         TimeSpan jobElapsedTime,
         ExecutedCommandResult commandResult,
         string id,
-        Dictionary<string, string>? commandParameters = null)
+        Dictionary<string, ICommandParameter>? commandParameters = null)
     {
         JobElapsedTime = jobElapsedTime;
         CommandResult = commandResult;
@@ -187,9 +187,9 @@ internal class ExecutedCommand : IExecutedCommand
         this.commandParameters = commandParameters ?? [];
     }
 
-    internal Dictionary<string, string> commandParameters;
+    internal Dictionary<string, ICommandParameter> commandParameters;
 
-    public IReadOnlyDictionary<string, string> Parameters => commandParameters.AsReadOnly();
+    public IReadOnlyDictionary<string, ICommandParameter> Parameters => commandParameters.AsReadOnly();
 
     public TimeSpan JobElapsedTime { get; private set; }
 

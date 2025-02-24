@@ -395,7 +395,7 @@ public class SequentialCommandProcessorTest
         ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
             .OnAnyJobSuccess((IExecutedCommand command) =>
             {
-                result = command.Parameters.FirstOrDefault().Value;
+                result = command.Parameters["param1"].OfType<string>();
                 elapsedTime = command.JobElapsedTime;
             })
             .OnAnyJobFailure(async (Exception ex, IExecutedCommand command) =>

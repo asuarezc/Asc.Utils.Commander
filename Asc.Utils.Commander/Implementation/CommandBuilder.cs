@@ -1,4 +1,6 @@
-﻿namespace Asc.Utils.Commander.Implementation;
+﻿using System.Collections.Generic;
+
+namespace Asc.Utils.Commander.Implementation;
 
 internal class CommandBuilder : ICommandBuilder
 {
@@ -7,7 +9,7 @@ internal class CommandBuilder : ICommandBuilder
     private CommandDelegate? onSuccessDelegate = null;
     private CommandDelegate? onFinallyDelegate = null;
     private readonly List<ExceptionCommandDelegate> onFailureDelegates = [];
-    private readonly Dictionary<string, string> commandParameters = [];
+    private readonly Dictionary<string, ICommandParameter> commandParameters = [];
 
     public ICommandBuilder Job(Action job)
     {
@@ -89,13 +91,15 @@ internal class CommandBuilder : ICommandBuilder
         return this;
     }
 
-    public ICommandBuilder AddOrReplaceParameter(string key, string value)
+    public ICommandBuilder AddOrReplaceParameter<T>(string key, T value)
     {
         if (string.IsNullOrEmpty(key))
             throw new ArgumentNullException(nameof(key));
 
-        if (!commandParameters.TryAdd(key, value))
-            commandParameters[key] = value;
+        CommandParameter parameter = new CommandParameter<T>(value);
+
+        if (!commandParameters.TryAdd(key, parameter))
+            commandParameters[key] = parameter;
 
         return this;
     }
@@ -132,7 +136,7 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
     private CommandOnSuccessDelegate<TResult>? onSuccessDelegate = null;
     private CommandDelegate? onFinallyDelegate = null;
     private readonly List<ExceptionCommandDelegate> onFailureDelegates = [];
-    private readonly Dictionary<string, string> commandParameters = [];
+    private readonly Dictionary<string, ICommandParameter> commandParameters = [];
 
     public ICommandBuilder<TResult> Job(Func<TResult> job)
     {
@@ -214,13 +218,15 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
         return this;
     }
 
-    public ICommandBuilder<TResult> AddOrReplaceParameter(string key, string value)
+    public ICommandBuilder<TResult> AddOrReplaceParameter<T>(string key, T value)
     {
         if (string.IsNullOrEmpty(key))
             throw new ArgumentNullException(nameof(key));
 
-        if (!commandParameters.TryAdd(key, value))
-            commandParameters[key] = value;
+        CommandParameter parameter = new CommandParameter<T>(value);
+
+        if (!commandParameters.TryAdd(key, parameter))
+            commandParameters[key] = parameter;
 
         return this;
     }

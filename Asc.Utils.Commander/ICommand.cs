@@ -1,10 +1,12 @@
-﻿namespace Asc.Utils.Commander;
+﻿using Asc.Utils.Commander.Implementation;
+
+namespace Asc.Utils.Commander;
 
 public interface ICommand
 {
     string Id { get; }
 
-    IReadOnlyDictionary<string, string> Parameters { get; }
+    IReadOnlyDictionary<string, ICommandParameter> Parameters { get; }
 }
 
 public interface IExecutedCommand : ICommand

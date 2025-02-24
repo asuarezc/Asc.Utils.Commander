@@ -485,7 +485,7 @@ public class ConcurrentCommandProcessorTest
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobSuccess((IExecutedCommand command) =>
             {
-                result = command.Parameters.FirstOrDefault().Value;
+                result = command.Parameters["param1"].OfType<string>();
                 elapsedTime = command.JobElapsedTime;
             })
             .OnAnyJobFailure(async (Exception ex, IExecutedCommand command) =>

@@ -18,7 +18,7 @@ public interface ICommandBuilder
 
     ICommandBuilder OnFinally(Func<Task> onFinally);
 
-    ICommandBuilder AddOrReplaceParameter(string key, string value);
+    ICommandBuilder AddOrReplaceParameter<T>(string key, T value);
 
     ICommandBuilder SetId(string id);
 
@@ -43,7 +43,7 @@ public interface ICommandBuilder<TResult>
 
     ICommandBuilder<TResult> OnFinally(Func<Task> onFinally);
 
-    ICommandBuilder<TResult> AddOrReplaceParameter(string key, string value);
+    ICommandBuilder<TResult> AddOrReplaceParameter<T>(string key, T value);
 
     ICommandBuilder<TResult> SetId(string id);
 
