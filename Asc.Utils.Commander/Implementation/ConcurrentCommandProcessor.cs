@@ -12,6 +12,7 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
     private readonly ConcurrentCommandProcessorConfiguration? configuration = configuration;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
     private Task? processUntilQueueIsEmptyTask = null;
+    private Task? lastProccessingCommandTask = null;
 
     internal int NumberOfProcessingCommands
     {
@@ -42,7 +43,7 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
             if (processUntilQueueIsEmptyTask is not null)
                 return;
 
-            processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmptyAsync);
+            processUntilQueueIsEmptyTask = Task.Run(ProcessUntilQueueIsEmpty);
         }
         finally
         {
@@ -50,12 +51,12 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
         }
     }
 
-    private async Task ProcessUntilQueueIsEmptyAsync()
+    private void ProcessUntilQueueIsEmpty()
     {
         if (configuration is null)
             throw new InvalidOperationException("Cannot process command without a configuration");
 
-        while (!pendingCommands.IsEmpty && NumberOfProcessingCommands < configuration.MaxNumberOfCommandsProcessedSimultaneosly)
+        while (!pendingCommands.IsEmpty)
         {
             if (!pendingCommands.TryDequeue(out ICommand? command))
                 throw new InvalidOperationException("Cannot dequeue command");
@@ -66,24 +67,37 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
             if (command is not CommandBase commandBase)
                 throw new InvalidOperationException("Cannot process a null command");
 
-            _ = Task.Run(async () =>
+            if (NumberOfProcessingCommands < configuration.MaxNumberOfCommandsProcessedSimultaneosly)
             {
                 NumberOfProcessingCommands++;
 
-                try
-                {
-                    await commandBase.RunAsync(configuration);
-                }
-                finally
-                {
-                    NumberOfProcessingCommands--;
-                }
-            });
+                lastProccessingCommandTask = Task.Run(async () => await RunCommandBaseAsync(commandBase, configuration));
+            }
+            else
+            {
+                if (lastProccessingCommandTask is null)
+                    throw new InvalidOperationException("Cannot continue a null task");
+
+                lastProccessingCommandTask = lastProccessingCommandTask.ContinueWith(async (Task task) => {
+                    NumberOfProcessingCommands++;
+
+                    await RunCommandBaseAsync(commandBase, configuration);
+                });
+            }
         }
 
-        if (!pendingCommands.IsEmpty)
-            await ProcessUntilQueueIsEmptyAsync();
-
         processUntilQueueIsEmptyTask = null;
+    }
+
+    private async Task RunCommandBaseAsync(CommandBase commandBase, ConcurrentCommandProcessorConfiguration configuration)
+    {
+        try
+        {
+            await commandBase.RunAsync(configuration);
+        }
+        finally
+        {
+            NumberOfProcessingCommands--;
+        }
     }
 }

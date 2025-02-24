@@ -9,11 +9,10 @@ public class ConcurrentCommandProcessorTest
     public async Task ConcurrentExecution()
     {
         Lock locker = new();
-        string result = string.Empty;
         TimeSpan total = TimeSpan.Zero;
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .SetMaxNumberOfCommandsProcessedSimultaneosly(20)
+            .SetMaxNumberOfCommandsProcessedSimultaneosly(10)
             .OnAnyJobSuccess((IExecutedCommand) =>
             {
                 locker.Enter();
@@ -21,6 +20,7 @@ public class ConcurrentCommandProcessorTest
                 try { total += IExecutedCommand.JobElapsedTime; }
                 finally { locker.Exit(); }
             })
+            //Mandatory
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
                 Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
@@ -28,6 +28,7 @@ public class ConcurrentCommandProcessorTest
             .Build();
 
         ICommand command = Commander.Instance.GetCommandBuilder()
+            //Job and SetId are mandatory
             .Job(async () =>
             {
                 await Task.Delay(TimeSpan.FromSeconds(1));
@@ -35,13 +36,63 @@ public class ConcurrentCommandProcessorTest
             .SetId(nameof(command))
             .Build();
 
-        for (int i = 0; i <= 9; i++)
-            commandProcessor.ProcessCommand(command);
+        using INeedleWorkerSlim worker = Pincushion.Instance.GetParallelWorkerSlim();
 
-        await Task.Delay(TimeSpan.FromSeconds(2));
+        for (int i = 0; i < 10; i++)
+            worker.AddJob(() => commandProcessor.ProcessCommand(command));
 
-        Assert.True(total > TimeSpan.FromSeconds(10));
-        Assert.True(total < TimeSpan.FromSeconds(11));
+        await worker.RunAsync();
+
+        //We only wait 1.5 secons but total jobs execution time is between 10 and 10.5 seconds.
+        //This is only possible with simultaneous execution
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+
+        Assert.True(total > TimeSpan.FromSeconds(10) && total < TimeSpan.FromSeconds(10.5));
+    }
+
+    [Fact]
+    public async Task ConcurrentExecution_NeedMoreThreds()
+    {
+        Lock locker = new();
+        TimeSpan total = TimeSpan.Zero;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .SetMaxNumberOfCommandsProcessedSimultaneosly(5)
+            .OnAnyJobSuccess((IExecutedCommand) =>
+            {
+                locker.Enter();
+
+                try { total += IExecutedCommand.JobElapsedTime; }
+                finally { locker.Exit(); }
+            })
+            //Mandatory
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder()
+            //Job and SetId are mandatory
+            .Job(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        using INeedleWorkerSlim worker = Pincushion.Instance.GetParallelWorkerSlim();
+
+        for (int i = 0; i < 10; i++)
+            worker.AddJob(() => commandProcessor.ProcessCommand(command));
+
+        await worker.RunAsync();
+
+        //We only wait 1.5 secons but total jobs execution time is between 10 and 10.5 seconds.
+        //This is only possible with simultaneous execution
+        await Task.Delay(TimeSpan.FromSeconds(1.5));
+
+        Assert.False(total > TimeSpan.FromSeconds(10) && total < TimeSpan.FromSeconds(10.5));
     }
 
     [Fact]
@@ -151,7 +202,7 @@ public class ConcurrentCommandProcessorTest
 
         using INeedleWorkerSlim worker = Pincushion.Instance.GetParallelWorkerSlim();
 
-        for (int i = 0; i <= 9; i++)
+        for (int i = 0; i < 10; i++)
             worker.AddJob(() => commandProcessor.ProcessCommand(command));
 
         await worker.RunAsync();

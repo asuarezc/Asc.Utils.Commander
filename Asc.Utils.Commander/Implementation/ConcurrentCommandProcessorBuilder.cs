@@ -118,7 +118,7 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
             OnSuccessDelegate = onSuccessDelegate,
             OnFailureDelegates = onFailureDelegates,
             OnFinallyDelegate = onFinallyDelegate,
-            MaxNumberOfCommandsProcessedSimultaneosly = maxNumberOfCommandsProcessedSimultaneosly,
+            MaxNumberOfCommandsProcessedSimultaneosly = maxNumberOfCommandsProcessedSimultaneosly ?? Environment.ProcessorCount,
         };
 
         return new ConcurrentCommandProcessor(processorConfiguration);
