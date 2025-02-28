@@ -372,6 +372,10 @@ public class SequentialCommandProcessorTest
             {
                 await Task.Run(() => builder.Append('C'));
             })
+            .OnFailure(async (InvalidOperationException ex) =>
+            {
+                await Task.Run(() => builder.Append("This should be not executed"));
+            })
             .OnFinally(async () =>
             {
                 await Task.Run(() => builder.Append('E'));
