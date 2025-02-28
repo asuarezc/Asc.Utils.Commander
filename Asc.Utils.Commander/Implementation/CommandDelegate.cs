@@ -86,8 +86,6 @@ internal abstract class ExceptionCommandDelegate
     internal Type? ExceptionType { get; set; }
 
     internal virtual Task RunAsync(Exception? ex) { throw new InvalidOperationException("Use derived type"); }
-
-    internal virtual bool CanExecute() => false;
 }
 
 internal class ExceptionCommandDelegate<TException> : ExceptionCommandDelegate where TException : Exception
@@ -95,8 +93,6 @@ internal class ExceptionCommandDelegate<TException> : ExceptionCommandDelegate w
     internal Action<TException>? SyncronousDelegate { get; }
 
     internal Func<TException, Task>? AsyncronousDelegate { get; }
-
-    internal override bool CanExecute() => AsyncronousDelegate is not null || SyncronousDelegate is not null;
 
     private ExceptionCommandDelegate()
     {

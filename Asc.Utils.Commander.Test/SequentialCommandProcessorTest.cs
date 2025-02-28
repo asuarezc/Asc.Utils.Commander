@@ -95,6 +95,38 @@ public class SequentialCommandProcessorTest(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
+    public async Task GenereicAsyncCommand()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(async () =>
+            {
+                await Task.Delay(10);
+                return "test";
+            })
+            .OnSuccess(jobResult =>
+            {
+                result = jobResult;
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
     public async Task AsyncJob()
     {
         string result = string.Empty;

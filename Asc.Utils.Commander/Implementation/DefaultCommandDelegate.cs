@@ -70,8 +70,6 @@ internal class DefaultExceptionCommandDelegate<TException> : DefaultExceptionCom
 
     internal Func<TException, IExecutedCommand, Task>? AsyncronousDelegate { get; }
 
-    internal virtual bool CanExecute() => AsyncronousDelegate is not null || SyncronousDelegate is not null;
-
     private DefaultExceptionCommandDelegate()
     {
         ExceptionType = typeof(TException);
