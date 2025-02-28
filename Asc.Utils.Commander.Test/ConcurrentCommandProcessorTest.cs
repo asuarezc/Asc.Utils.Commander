@@ -43,11 +43,14 @@ public class ConcurrentCommandProcessorTest
 
         await worker.RunAsync();
 
-        //We only wait 1.5 secons but total jobs execution time is between 10 and 10.5 seconds.
+        //We only wait 1.5 secons but total jobs execution time is between 10 and 10.5 seconds
         //This is only possible with simultaneous execution
         await Task.Delay(TimeSpan.FromSeconds(1.5));
 
-        Assert.True(total > TimeSpan.FromSeconds(10) && total < TimeSpan.FromSeconds(10.5));
+        Assert.True(
+            total > TimeSpan.FromSeconds(10)
+            && total < TimeSpan.FromSeconds(10.5)
+        );
     }
 
     [Fact]
@@ -88,10 +91,10 @@ public class ConcurrentCommandProcessorTest
 
         await worker.RunAsync();
 
-        //We only wait 1.5 secons but total jobs execution time is between 10 and 10.5 seconds.
-        //This is only possible with simultaneous execution
         await Task.Delay(TimeSpan.FromSeconds(1.5));
 
+        //Same Assert condition as above but false instead of true
+        //since the maximum number of commands processed simultaneously has been reduced from 10 to 5
         Assert.False(total > TimeSpan.FromSeconds(10) && total < TimeSpan.FromSeconds(10.5));
     }
 
