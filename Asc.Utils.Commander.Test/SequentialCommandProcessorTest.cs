@@ -95,7 +95,7 @@ public class SequentialCommandProcessorTest(ITestOutputHelper testOutputHelper)
     }
 
     [Fact]
-    public async Task GenereicAsyncCommand()
+    public async Task GenericAsyncCommand()
     {
         string result = string.Empty;
 
@@ -112,9 +112,183 @@ public class SequentialCommandProcessorTest(ITestOutputHelper testOutputHelper)
                 await Task.Delay(10);
                 return "test";
             })
+            .OnSuccess(async jobResult =>
+            {
+                await Task.Delay(10);
+                result = jobResult;
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericAsyncOnSuccess()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() => "test")
+            .OnSuccess(async jobResult =>
+            {
+                await Task.Delay(10);
+                result = jobResult;
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericOnFailure()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() =>
+            {
+                throw new InvalidOperationException();
+#pragma warning disable CS0162 // Unreachable code detected
+                return string.Empty;
+#pragma warning restore CS0162 // Unreachable code detected
+            })
             .OnSuccess(jobResult =>
             {
                 result = jobResult;
+            })
+            .OnFailure((Exception _) =>
+            {
+                result = "test";
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericAsyncOnFailure()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() =>
+            {
+                throw new InvalidOperationException();
+#pragma warning disable CS0162 // Unreachable code detected
+                return string.Empty;
+#pragma warning restore CS0162 // Unreachable code detected
+            })
+            .OnSuccess(jobResult =>
+            {
+                result = jobResult;
+            })
+            .OnFailure(async (Exception _) =>
+            {
+                await Task.Delay(10);
+                result = "test";
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericOnFinally()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() => "test")
+            //OnSuccess is mandatory when using ComandBuilder<T>
+            .OnSuccess(_ =>
+            {
+                result = string.Empty;
+            })
+            .OnFinally(() =>
+            {
+                result = "test";
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericAsyncOnFinally()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() => "test")
+            //OnSuccess is mandatory when using ComandBuilder<T>
+            .OnSuccess(_ =>
+            {
+                result = string.Empty;
+            })
+            .OnFinally(async () =>
+            {
+                await Task.Delay(10);
+                result = "test";
             })
             .SetId(nameof(command))
             .Build();
@@ -477,6 +651,46 @@ public class SequentialCommandProcessorTest(ITestOutputHelper testOutputHelper)
             .Job(() =>
             {
                 testOutputHelper.WriteLine("Testing ParametersAndElapsedTime");
+            })
+            .AddOrReplaceParameter("param1", "test")
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+        Assert.NotNull(elapsedTime);
+    }
+
+    [Fact]
+    public async Task GenericParametersAndElapsedTime()
+    {
+        string result = string.Empty;
+        TimeSpan? elapsedTime = null;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+            .OnAnyJobSuccess(command =>
+            {
+                result = command.Parameters["param1"].OfType<string>();
+                elapsedTime = command.JobElapsedTime;
+            })
+            .OnAnyJobFailure(async (Exception ex, IExecutedCommand command) =>
+            {
+                await Task.Run(() => testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\""));
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() =>
+            {
+                testOutputHelper.WriteLine("Testing GenericParametersAndElapsedTime");
+                return string.Empty;
+            })
+            .OnSuccess(_ =>
+            {
+                testOutputHelper.WriteLine("Testing GenericParametersAndElapsedTime");
             })
             .AddOrReplaceParameter("param1", "test")
             .SetId(nameof(command))
