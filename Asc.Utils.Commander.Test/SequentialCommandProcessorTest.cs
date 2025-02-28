@@ -1,13 +1,11 @@
 ﻿using Asc.Utils.Needle;
 using System.Text;
-using Xunit.Sdk;
+using Xunit.Abstractions;
 
 namespace Asc.Utils.Commander.Test;
 
-public class SequentialCommandProcessorTest
+public class SequentialCommandProcessorTest(ITestOutputHelper testOutputHelper)
 {
-    private static readonly TestOutputHelper testOutputHelper = new();
-
     [Fact]
     public async Task MostBasicIntendedUse()
     {
@@ -33,6 +31,39 @@ public class SequentialCommandProcessorTest
         await Task.Delay(100);
 
         Assert.Equal("Job1", result);
+    }
+
+    [Fact]
+    public async Task ExecutedCommand()
+    {
+        string result = string.Empty;
+        string executedCommandResult = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .OnAfterAnyJob(executedCommand =>
+            {
+                executedCommandResult = executedCommand.CommandResult.ToString();
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder()
+            .Job(() =>
+            {
+                result = "Job1";
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("Job1", result);
+        Assert.Equal("Succeeded", executedCommandResult);
     }
 
     [Fact]
