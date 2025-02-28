@@ -64,8 +64,8 @@ public interface IConcurrentCommandProcessorBuilder : ICommandProcessorBuilder
     /// <summary>
     /// Sets the maximum number of commands that can be processed simultaneously
     /// </summary>
-    IConcurrentCommandProcessorBuilder SetMaxNumberOfCommandsProcessedSimultaneosly(
-        int maxNumberOfCommandsProcessedSimultaneosly);
+    IConcurrentCommandProcessorBuilder SetMaxThreads(
+        int maxThreads);
 
     /// <summary>
     /// Defines a syncronous delegate to be executed just before executing the job of a <see cref="ICommand"/>

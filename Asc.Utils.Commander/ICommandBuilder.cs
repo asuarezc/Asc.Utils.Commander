@@ -52,9 +52,9 @@ public interface ICommandBuilder
     ICommandBuilder AddOrReplaceParameter<T>(string key, T value);
 
     /// <summary>
-    /// Sets command id
+    /// Sets command commandId
     /// </summary>
-    ICommandBuilder SetId(string id);
+    ICommandBuilder SetId(string commandId);
 
     /// <summary>
     /// Creates a <see cref="ICommand"/> instance from this <see cref="ICommandBuilder"/>
@@ -115,9 +115,9 @@ public interface ICommandBuilder<TResult>
     ICommandBuilder<TResult> AddOrReplaceParameter<T>(string key, T value);
 
     /// <summary>
-    /// Sets command id
+    /// Sets command commandId
     /// </summary>
-    ICommandBuilder<TResult> SetId(string id);
+    ICommandBuilder<TResult> SetId(string commandId);
 
     /// <summary>
     /// Creates a <see cref="ICommand"/> generic instance from this <see cref="ICommandBuilder"/> of <typeparamref name="TResult"/>

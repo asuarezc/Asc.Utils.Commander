@@ -3,32 +3,32 @@
 internal static class ExceptionManager
 {
     internal static async Task ManageExceptionAsync(
-        Exception exception,
-        List<ExceptionCommandDelegate> delegates,
-        List<DefaultExceptionCommandDelegate> defaultDelegates,
+        Exception? exception,
+        List<ExceptionCommandDelegate>? delegates,
+        List<DefaultExceptionCommandDelegate>? defaultDelegates,
         TimeSpan jobElapsedTime,
         string id)
     {
         if ((delegates is null || delegates.Count == 0) && (defaultDelegates is null || defaultDelegates.Count == 0))
             ThrowInvalidDueToNoDelegateFoundForCurrent(exception);
 
-        Type exType = exception.GetType();
+        Type? exType = exception?.GetType();
         IExecutedCommand executedCommand = new ExecutedCommand(jobElapsedTime, ExecutedCommandResult.Failed, id);
 
         ExceptionCommandDelegate? exceptionDelegate = delegates?
-            .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType.Equals(typeof(Exception)));
+            .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType == typeof(Exception));
 
         DefaultExceptionCommandDelegate? defaultExceptionDelegate = defaultDelegates?
-            .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType.Equals(typeof(Exception)));
+            .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType == typeof(Exception));
 
         //if exception is a derived type from Exception class
-        if (!exType.Equals(typeof(Exception)))
+        if (exType != typeof(Exception))
         {
             ExceptionCommandDelegate? derivedExceptionTypeDelegate = delegates?
-                .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType.Equals(exType));
+                .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType == exType);
 
             DefaultExceptionCommandDelegate? defaultDerivedExceptionTypeDelegate = defaultDelegates?
-                .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType.Equals(exType));
+                .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType == exType);
 
             if (derivedExceptionTypeDelegate is not null)
                 await derivedExceptionTypeDelegate.RunAsync(exception);
@@ -62,7 +62,7 @@ internal static class ExceptionManager
         }
     }
 
-    private static void ThrowInvalidDueToNoDelegateFoundForCurrent(Exception ex)
+    private static void ThrowInvalidDueToNoDelegateFoundForCurrent(Exception? ex)
     {
         throw new InvalidOperationException(
             string.Concat(

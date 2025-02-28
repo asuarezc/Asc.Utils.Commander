@@ -5,9 +5,9 @@ namespace Asc.Utils.Commander.Implementation;
 internal class SequentialCommandProcessor : ICommandProcessor
 {
     private static readonly Lock locker = new();
-    private readonly CommandProcessorConfiguration? configuration = null;
+    private readonly CommandProcessorConfiguration? configuration;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
-    private Task? processUntilQueueIsEmptyTask = null;
+    private Task? processUntilQueueIsEmptyTask;
 
     public void ProcessCommand(ICommand command)
     {

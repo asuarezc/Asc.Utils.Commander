@@ -13,5 +13,5 @@ internal class CommandProcessorConfiguration
 
 internal class ConcurrentCommandProcessorConfiguration : CommandProcessorConfiguration
 {
-    internal int MaxNumberOfCommandsProcessedSimultaneosly { get; set; }
+    internal int MaxThreads { get; set; }
 }

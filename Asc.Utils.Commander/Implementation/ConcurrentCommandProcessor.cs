@@ -8,11 +8,11 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
     private static readonly Lock locker = new();
     private static readonly ReaderWriterLockSlim lockerForMaxConcurrentCommands = new(LockRecursionPolicy.NoRecursion);
 
-    private int numberOfProcessingCommands = 0;
+    private int numberOfProcessingCommands;
     private readonly ConcurrentCommandProcessorConfiguration? configuration = configuration;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
-    private Task? processUntilQueueIsEmptyTask = null;
-    private Task? lastProccessingCommandTask = null;
+    private Task? processUntilQueueIsEmptyTask;
+    private Task? lastProccessingCommandTask;
 
     internal int NumberOfProcessingCommands
     {
@@ -67,7 +67,7 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
             if (command is not CommandBase commandBase)
                 throw new InvalidOperationException("Cannot process a null command");
 
-            if (NumberOfProcessingCommands < configuration.MaxNumberOfCommandsProcessedSimultaneosly)
+            if (NumberOfProcessingCommands < configuration.MaxThreads)
             {
                 NumberOfProcessingCommands++;
 
@@ -78,7 +78,7 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
                 if (lastProccessingCommandTask is null)
                     throw new InvalidOperationException("Cannot continue a null task");
 
-                lastProccessingCommandTask = lastProccessingCommandTask.ContinueWith(async (Task task) => {
+                lastProccessingCommandTask = lastProccessingCommandTask.ContinueWith(async _ => {
                     NumberOfProcessingCommands++;
 
                     await RunCommandBaseAsync(commandBase, configuration);
@@ -89,11 +89,11 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
         processUntilQueueIsEmptyTask = null;
     }
 
-    private async Task RunCommandBaseAsync(CommandBase commandBase, ConcurrentCommandProcessorConfiguration configuration)
+    private async Task RunCommandBaseAsync(CommandBase commandBase, ConcurrentCommandProcessorConfiguration processorConfiguration)
     {
         try
         {
-            await commandBase.RunAsync(configuration);
+            await commandBase.RunAsync(processorConfiguration);
         }
         finally
         {
