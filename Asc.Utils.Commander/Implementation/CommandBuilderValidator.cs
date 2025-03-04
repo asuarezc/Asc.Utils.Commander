@@ -4,15 +4,11 @@ internal static class CommandBuilderValidator
 {
     internal static void ThrowIfThereIsAlreadyADelegateForThat<TException>(List<ExceptionCommandDelegate> delegates)
     {
-        string? typeFullName = typeof(TException).FullName;
-
-        if (string.IsNullOrEmpty(typeFullName))
-            throw new InvalidOperationException("Type with no name");
+        Type invokingType = typeof(TException);
 
         if (delegates.Any(it =>
             it.ExceptionType is not null
-            && !string.IsNullOrEmpty(it.ExceptionType.FullName)
-            && it.ExceptionType.FullName == typeFullName))
+            && it.ExceptionType == invokingType))
         {
             throw new InvalidOperationException("There is already a delegate for that");
         }

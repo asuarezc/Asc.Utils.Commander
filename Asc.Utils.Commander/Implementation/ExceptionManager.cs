@@ -21,8 +21,7 @@ internal static class ExceptionManager
         DefaultExceptionCommandDelegate? defaultExceptionDelegate = defaultDelegates?
             .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType == typeof(Exception));
 
-        //if exception is a derived type from Exception class
-        if (exType != typeof(Exception))
+        if (exType is not null && exType.IsSubclassOf(typeof(Exception)))
         {
             ExceptionCommandDelegate? derivedExceptionTypeDelegate = delegates?
                 .SingleOrDefault(it => it.ExceptionType is not null && it.ExceptionType == exType);
@@ -45,20 +44,19 @@ internal static class ExceptionManager
                 if (defaultExceptionDelegate is not null)
                     await defaultExceptionDelegate.RunAsync(exception, executedCommand);
             }
+
+            return;
         }
-        //if exception is an Exception class instance
+
+        if (exceptionDelegate is null && defaultExceptionDelegate is null)
+            ThrowInvalidDueToNoDelegateFoundForCurrent(exception);
         else
         {
-            if (exceptionDelegate is null && defaultExceptionDelegate is null)
-                ThrowInvalidDueToNoDelegateFoundForCurrent(exception);
-            else
-            {
-                if (exceptionDelegate is not null)
-                    await exceptionDelegate.RunAsync(exception);
+            if (exceptionDelegate is not null)
+                await exceptionDelegate.RunAsync(exception);
 
-                if (defaultExceptionDelegate is not null)
-                    await defaultExceptionDelegate.RunAsync(exception, executedCommand);
-            }
+            if (defaultExceptionDelegate is not null)
+                await defaultExceptionDelegate.RunAsync(exception, executedCommand);
         }
     }
 
