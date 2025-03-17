@@ -1,9 +1,36 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<PackageId>Asc.Utils.Commander</PackageId>
+		<Title>Asc.Utils.Commander</Title>
+		<Version>1.0.0</Version>
+		<Authors>Alberto Suárez Cánovas</Authors>
+		<Company />
+		<Product>Asc.Utils.Commander</Product>
+		<Description>Utility to use command pattern in the simplest way possible.</Description>
+		<Copyright>MIT</Copyright>
+		<PackageTags>Design patterns, Utility, Command pattern, Unity of work pattern</PackageTags>
+		<PackageIcon>helmet.png</PackageIcon>
+		<RepositoryUrl>https://github.com/asuarezc/Asc.Utils.Commander</RepositoryUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageReleaseNotes>net9.0 version</PackageReleaseNotes>
+	</PropertyGroup>
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<ItemGroup>
+		<None Include="..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
 
+	<ItemGroup>
+		<None Update="helmet.png">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
 </Project>
