@@ -7,7 +7,7 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
     private readonly List<DefaultExceptionCommandDelegate> onFailureDelegates = [];
     private DefaultExecutedCommandDelegate? onFinallyDelegate;
 
-    public ISequentialCommandProcessorBuilder OnBeforeAnyJob(Action<ICommand> onBeforeJob)
+    public ISequentialCommandProcessorBuilder OnBeforeAnyJob(Action<ICommand>? onBeforeJob)
     {
         ArgumentNullException.ThrowIfNull(onBeforeJob, nameof(onBeforeJob));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onBeforeJobDelegate);

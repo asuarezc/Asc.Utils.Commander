@@ -71,7 +71,7 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
             {
                 NumberOfProcessingCommands++;
 
-                lastProccessingCommandTask = Task.Run(async () => await RunCommandBaseAsync(commandBase, configuration));
+                lastProccessingCommandTask = Task.Run(async () => await RunCommandBaseAsync(commandBase, configuration).ConfigureAwait(false));
             }
             else
             {
@@ -81,7 +81,7 @@ internal class ConcurrentCommandProcessor(ConcurrentCommandProcessorConfiguratio
                 lastProccessingCommandTask = lastProccessingCommandTask.ContinueWith(async _ => {
                     NumberOfProcessingCommands++;
 
-                    await RunCommandBaseAsync(commandBase, configuration);
+                    await RunCommandBaseAsync(commandBase, configuration).ConfigureAwait(false);
                 });
             }
         }

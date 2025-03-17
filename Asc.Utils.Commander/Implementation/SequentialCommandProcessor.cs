@@ -47,10 +47,10 @@ internal class SequentialCommandProcessor : ICommandProcessor
         if (command is not CommandBase commandBase)
             throw new InvalidOperationException("Cannot process a null command");
 
-        await commandBase.RunAsync(configuration);
+        await commandBase.RunAsync(configuration).ConfigureAwait(false);
 
         if (!pendingCommands.IsEmpty)
-            await ProcessUntilQueueIsEmptyAsync();
+            await ProcessUntilQueueIsEmptyAsync().ConfigureAwait(false);
 
         processUntilQueueIsEmptyTask = null;
     }

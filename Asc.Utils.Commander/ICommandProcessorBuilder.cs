@@ -16,7 +16,7 @@ public interface ISequentialCommandProcessorBuilder : ICommandProcessorBuilder
     /// <summary>
     /// Defines a syncronous delegate to be executed just before executing the job of a <see cref="ICommand"/>
     /// </summary>
-    ISequentialCommandProcessorBuilder OnBeforeAnyJob(Action<ICommand> onBeforeJob);
+    ISequentialCommandProcessorBuilder OnBeforeAnyJob(Action<ICommand>? onBeforeJob);
 
     /// <summary>
     /// Defines an asyncronous delegate to be executed just before executing the job of a <see cref="ICommand"/>
