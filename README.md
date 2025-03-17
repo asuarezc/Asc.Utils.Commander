@@ -179,7 +179,7 @@ Install-Package Asc.Utils.Commander
       })
       .Build();
 
-    appBuilder.Services.RegisterInstance<ICommandProcessor>(commandProcessor);
+    appBuilder.Services.RegisterInstance<ICommandProcessor>(uiCommandProcessor);
 
     //Some other code
   }
