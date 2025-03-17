@@ -89,7 +89,7 @@ Install-Package Asc.Utils.Commander
     if (command is null || command.Parameters is null
       || !command.Parameters.ContainsKey(Constants.TRACKER_PARAM_KEY))
     {
-    return null;
+      return null;
     }
 
     return command.Parameters[Constants.TRACKER_PARAM_KEY].OfType<IEventTracker>();
