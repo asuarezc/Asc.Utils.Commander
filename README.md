@@ -86,8 +86,11 @@ Install-Package Asc.Utils.Commander
 
   private IEventTracker GetTrackerFromCommand(ICommand command)
   {
-    if (command is null || command.Parameters is null || !command.Parameters.ContainsKey(Constants.TRACKER_PARAM_KEY))
-      return null;
+    if (command is null || command.Parameters is null
+      || !command.Parameters.ContainsKey(Constants.TRACKER_PARAM_KEY))
+    {
+    return null;
+    }
 
     return command.Parameters[Constants.TRACKER_PARAM_KEY].OfType<IEventTracker>();
   }
@@ -115,11 +118,12 @@ Install-Package Asc.Utils.Commander
   //Later, somewhere in you app
   // ...
 
-  private void PurchaseItems_ButtonClicked()
+  public void PurchaseProducts()
   {
     ICommandProcessor commandProcessor = App.Services.Resolve<ICommandProcessor>();
 
-    //Products will be purchased in parallel because this command processor was created as a concurrent one
+    //Products will be purchased in parallel
+    //because this command processor was created as a concurrent one
     foreach (Product product in currentShoppingCart.Products)
         commandProcessor.ProcessCommand(GetCommandToPurchaseProduct(product));
   }
@@ -134,14 +138,17 @@ Install-Package Asc.Utils.Commander
     return Commander.Instance.GetCommandBuilder<PurchasedProduct>()
       .Job(async () => return await productProcessor.PurchaseProduct(product)) //This is mandatory
       .OnSuccess((PurchasedProduct purchasedProduct) =>
-        toastService.ShowToast($"Purchased {purchasedProduct.Amount} items of {purchasedProduct.Name} product")
+        toastService.ShowToast(
+          $"Purchased {purchasedProduct.Amount} items of {purchasedProduct.Name} product"
+        )
       )
       .OnFailure((InsufficientStockException ex) =>
       {
         string message = $"Cannot purchase {product.Amount} items of {product.Name} since there is only {ex.ProductStockSize} in stock";
         toastService.ShowWarningToast(message);
       })
-      .OnFailure((Exception _) => toastService.ShowWarningToast($"Product {product.Name} purchase failed. Try it later"))
+      .OnFailure((Exception _) =>
+        toastService.ShowWarningToast($"Product {product.Name} purchase failed. Try it later"))
       .AddOrReplaceParameter(Constants.TRACKER_PARAM_KEY, trackingService.BuildTrackerForEvent(commandId))
       .AddOrReplaceParameter("productId", product.Id)
       .AddOrReplaceParameter("amount", product.Amount)
@@ -149,3 +156,88 @@ Install-Package Asc.Utils.Commander
       .Build();
   }
 ```
+
+### UI Commands
+```C#
+  public void AppStart(IAppBuilder appBuilder)
+  {
+    //Some other code
+
+    ICommandProcessor uiCommandProcessor = Commander.Instance.GetSequentialCommandProcessorBuilder()
+      .OnBeforeAnyJob(() =>
+      {
+        navigationService.CurrentPage.IsBusy = true;
+        navigationService.CurrentPage.ShowSpinner();
+      })
+      //This is mandatory
+      .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+        logger.LogException(ex, $"{command.Id} failed. Check exception"))
+      .OnAfterAnyJob(() =>
+      {
+        navigationService.CurrentPage.HideSpinner();
+        navigationService.CurrentPage.IsBusy = false;
+      })
+      .Build();
+
+    appBuilder.Services.RegisterInstance<ICommandProcessor>(commandProcessor);
+
+    //Some other code
+  }
+
+  // ...
+  //Later, somewhere in you app
+  // ...
+
+  private ICommand? purchaseProductsCommand;
+
+  private void ShoppingCartPurchaseButton_Clicked()
+  {
+    if (IsBusy)
+      return;
+
+    ICommandProcessor commandProcessor = App.Services.Resolve<ICommandProcessor>();
+    ICommand command = GetPurchaseProductsCommand();
+
+    //Commands will be processed one by one
+    //since the used command processor has been created as a sequential one.
+    commandProcessor.ProcessCommand(command);
+  }
+
+  //Purchase cart products have always same logic so you can reuse an ICommand instance
+  private ICommand GetPurchaseProductsCommand()
+  {
+    if (purchaseProductsCommand is not null)
+      return purchaseProductsCommand;
+
+    purchaseProductsCommand = Commander.Instance.GetCommandBuilder()
+      .Job(() => shoppingCartService.PurchaseProducts())
+      .OnFailure((Exception _) => toastService.ShowWarningToast("Something failed. Try it later"))
+      .SetId("Cart.PurchaseItems")
+      .Build();
+
+    return purchaseProductsCommand;
+  }
+```
+
+## Bad practices
+- Calling ICommandProcessor.ProcessCommand recursively from within a command's job that will be processed by the same command processor.
+- Do not propagate an exception that occurs within a command's job. This way, no delegates registered for error cases will be invoked.
+
+## More info
+See public interfaces summaries:
+
+- ICommand
+- IExecutedCommand
+- ICommandBuilder
+- ICommandBuilder<>
+- ICommander
+- ICommandParameter
+- ICommandProcessor
+- ISequentialCommandProcessorBuilder
+- IConcurrentCommandProcessorBuilder
+- ICommandProcessorBuilder
+
+to get more info about how to use this utility.
+
+## Icon from Flaticon:
+<a href="https://www.flaticon.com/free-icons/soldier" title="soldier icons">Soldier icons created by imaginationlol - Flaticon</a>
