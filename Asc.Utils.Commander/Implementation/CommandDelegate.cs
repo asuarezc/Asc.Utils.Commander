@@ -2,9 +2,9 @@
 
 internal class CommandDelegate
 {
-    internal Action? SyncronousDelegate { get; private set; }
+    internal Action? SyncronousDelegate { get; }
 
-    internal Func<Task>? AsyncronousDelegate { get; private set; }
+    internal Func<Task>? AsyncronousDelegate { get; }
 
     internal CommandDelegate(Action syncronousDelegate) => SyncronousDelegate = syncronousDelegate;
 
@@ -27,9 +27,9 @@ internal class CommandDelegate
 
 internal class CommandJobDelegate<TResult>
 {
-    internal Func<TResult>? SyncronousDelegate { get; private set; }
+    internal Func<TResult>? SyncronousDelegate { get; }
 
-    internal Func<Task<TResult>>? AsyncronousDelegate { get; private set; }
+    internal Func<Task<TResult>>? AsyncronousDelegate { get; }
 
     internal CommandJobDelegate(Func<TResult> syncronousDelegate) => SyncronousDelegate = syncronousDelegate;
 
@@ -56,9 +56,9 @@ internal class CommandJobDelegate<TResult>
 
 internal class CommandOnSuccessDelegate<TResult>
 {
-    internal Action<TResult>? SyncronousDelegate { get; private set; }
+    internal Action<TResult>? SyncronousDelegate { get; }
 
-    internal Func<TResult, Task>? AsyncronousDelegate { get; private set; }
+    internal Func<TResult, Task>? AsyncronousDelegate { get; }
 
     internal CommandOnSuccessDelegate(Action<TResult> syncronousDelegate) => SyncronousDelegate = syncronousDelegate;
 
@@ -77,7 +77,6 @@ internal class CommandOnSuccessDelegate<TResult>
         if (SyncronousDelegate is not null)
         {
             await Task.Run(() => SyncronousDelegate(result));
-            return;
         }
     }
 }
@@ -86,18 +85,14 @@ internal abstract class ExceptionCommandDelegate
 {
     internal Type? ExceptionType { get; set; }
 
-    internal virtual Task RunAsync(Exception ex) { throw new InvalidOperationException("Use derived type"); }
-
-    internal virtual bool CanExecute() => false;
+    internal virtual Task RunAsync(Exception? ex) { throw new InvalidOperationException("Use derived type"); }
 }
 
 internal class ExceptionCommandDelegate<TException> : ExceptionCommandDelegate where TException : Exception
 {
-    internal Action<TException>? SyncronousDelegate { get; private set; }
+    internal Action<TException>? SyncronousDelegate { get; }
 
-    internal Func<TException, Task>? AsyncronousDelegate { get; private set; }
-
-    internal override bool CanExecute() => AsyncronousDelegate is not null || SyncronousDelegate is not null;
+    internal Func<TException, Task>? AsyncronousDelegate { get; }
 
     private ExceptionCommandDelegate()
     {
@@ -114,7 +109,7 @@ internal class ExceptionCommandDelegate<TException> : ExceptionCommandDelegate w
         AsyncronousDelegate = asyncronousDelegate;
     }
 
-    internal override async Task RunAsync(Exception ex)
+    internal override async Task RunAsync(Exception? ex)
     {
         if (ex is null)
             return;
@@ -133,7 +128,6 @@ internal class ExceptionCommandDelegate<TException> : ExceptionCommandDelegate w
         if (SyncronousDelegate is not null)
         {
             await Task.Run(() => SyncronousDelegate(ex));
-            return;
         }
     }
 }

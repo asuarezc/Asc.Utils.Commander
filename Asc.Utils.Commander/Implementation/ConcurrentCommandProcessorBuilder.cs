@@ -2,23 +2,23 @@
 
 internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBuilder
 {
-    private DefaultCommandDelegate? onBeforeJobDelegate = null;
-    private DefaultExecutedCommandDelegate? onSuccessDelegate = null;
+    private DefaultCommandDelegate? onBeforeJobDelegate;
+    private DefaultExecutedCommandDelegate? onSuccessDelegate;
     private readonly List<DefaultExceptionCommandDelegate> onFailureDelegates = [];
-    private DefaultExecutedCommandDelegate? onFinallyDelegate = null;
-    private int? maxNumberOfCommandsProcessedSimultaneosly = null;
+    private DefaultExecutedCommandDelegate? onFinallyDelegate;
+    private int? maxNumberOfCommandsProcessedSimultaneosly;
 
-    public IConcurrentCommandProcessorBuilder SetMaxNumberOfCommandsProcessedSimultaneosly(
-        int maxNumberOfCommandsProcessedSimultaneosly)
+    public IConcurrentCommandProcessorBuilder SetMaxThreads(
+        int maxThreads)
     {
-        if (maxNumberOfCommandsProcessedSimultaneosly <= 0)
-            throw new ArgumentException("Value must be greater than 0", nameof(maxNumberOfCommandsProcessedSimultaneosly));
+        if (maxThreads <= 0)
+            throw new ArgumentException("Value must be greater than 0", nameof(maxThreads));
 
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(
             this.maxNumberOfCommandsProcessedSimultaneosly
         );
 
-        this.maxNumberOfCommandsProcessedSimultaneosly = maxNumberOfCommandsProcessedSimultaneosly;
+        this.maxNumberOfCommandsProcessedSimultaneosly = maxThreads;
 
         return this;
     }
@@ -107,7 +107,7 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
     {
         if (onFailureDelegates is null
             || onFailureDelegates.Count == 0
-            || !onFailureDelegates.Any(it => it.ExceptionType is not null && it.ExceptionType.Equals(typeof(Exception))))
+            || !onFailureDelegates.Any(it => it.ExceptionType is not null && it.ExceptionType == typeof(Exception)))
         {
             throw new InvalidOperationException("An on failure delegate for Exception instances is mandatory");
         }
@@ -118,7 +118,7 @@ internal class ConcurrentCommandProcessorBuilder : IConcurrentCommandProcessorBu
             OnSuccessDelegate = onSuccessDelegate,
             OnFailureDelegates = onFailureDelegates,
             OnFinallyDelegate = onFinallyDelegate,
-            MaxNumberOfCommandsProcessedSimultaneosly = maxNumberOfCommandsProcessedSimultaneosly ?? Environment.ProcessorCount,
+            MaxThreads = maxNumberOfCommandsProcessedSimultaneosly ?? Environment.ProcessorCount,
         };
 
         return new ConcurrentCommandProcessor(processorConfiguration);

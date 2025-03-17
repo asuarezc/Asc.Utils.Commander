@@ -2,12 +2,12 @@
 
 internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBuilder
 {
-    private DefaultCommandDelegate? onBeforeJobDelegate = null;
-    private DefaultExecutedCommandDelegate? onSuccessDelegate = null;
+    private DefaultCommandDelegate? onBeforeJobDelegate;
+    private DefaultExecutedCommandDelegate? onSuccessDelegate;
     private readonly List<DefaultExceptionCommandDelegate> onFailureDelegates = [];
-    private DefaultExecutedCommandDelegate? onFinallyDelegate = null;
+    private DefaultExecutedCommandDelegate? onFinallyDelegate;
 
-    public ISequentialCommandProcessorBuilder OnBeforeAnyJob(Action<ICommand> onBeforeJob)
+    public ISequentialCommandProcessorBuilder OnBeforeAnyJob(Action<ICommand>? onBeforeJob)
     {
         ArgumentNullException.ThrowIfNull(onBeforeJob, nameof(onBeforeJob));
         CommandProcessorBuilderValidator.ThrowIfThereIsAlreadyADelegateForThat(onBeforeJobDelegate);
@@ -93,7 +93,7 @@ internal class SequentialCommandProcessorBuilder : ISequentialCommandProcessorBu
     {
         if (onFailureDelegates is null
             || onFailureDelegates.Count == 0
-            || !onFailureDelegates.Any(it => it.ExceptionType is not null && it.ExceptionType.Equals(typeof(Exception))))
+            || !onFailureDelegates.Any(it => it.ExceptionType is not null && it.ExceptionType == typeof(Exception)))
         {
             throw new InvalidOperationException("An on failure delegate for Exception instances is mandatory");
         }

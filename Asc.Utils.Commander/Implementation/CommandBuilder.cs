@@ -1,13 +1,11 @@
-﻿using System.Collections.Generic;
-
-namespace Asc.Utils.Commander.Implementation;
+﻿namespace Asc.Utils.Commander.Implementation;
 
 internal class CommandBuilder : ICommandBuilder
 {
     private string? id;
-    private CommandDelegate? jobDelegate = null;
-    private CommandDelegate? onSuccessDelegate = null;
-    private CommandDelegate? onFinallyDelegate = null;
+    private CommandDelegate? jobDelegate;
+    private CommandDelegate? onSuccessDelegate;
+    private CommandDelegate? onFinallyDelegate;
     private readonly List<ExceptionCommandDelegate> onFailureDelegates = [];
     private readonly Dictionary<string, ICommandParameter> commandParameters = [];
 
@@ -104,15 +102,15 @@ internal class CommandBuilder : ICommandBuilder
         return this;
     }
 
-    public ICommandBuilder SetId(string id)
+    public ICommandBuilder SetId(string commandId)
     {
-        if (string.IsNullOrEmpty(id))
-            throw new ArgumentNullException(nameof(id));
+        if (string.IsNullOrEmpty(commandId))
+            throw new ArgumentNullException(nameof(commandId));
 
         if (!string.IsNullOrEmpty(this.id))
             throw new InvalidOperationException("Command already have an Id");
 
-        this.id = id;
+        this.id = commandId;
 
         return this;
     }
@@ -132,9 +130,9 @@ internal class CommandBuilder : ICommandBuilder
 internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
 {
     private string? id;
-    private CommandJobDelegate<TResult>? jobDelegate = null;
-    private CommandOnSuccessDelegate<TResult>? onSuccessDelegate = null;
-    private CommandDelegate? onFinallyDelegate = null;
+    private CommandJobDelegate<TResult>? jobDelegate;
+    private CommandOnSuccessDelegate<TResult>? onSuccessDelegate;
+    private CommandDelegate? onFinallyDelegate;
     private readonly List<ExceptionCommandDelegate> onFailureDelegates = [];
     private readonly Dictionary<string, ICommandParameter> commandParameters = [];
 
@@ -231,15 +229,15 @@ internal class CommandBuilder<TResult> : ICommandBuilder<TResult>
         return this;
     }
 
-    public ICommandBuilder<TResult> SetId(string id)
+    public ICommandBuilder<TResult> SetId(string commandId)
     {
-        if (string.IsNullOrEmpty(id))
-            throw new ArgumentNullException(nameof(id));
+        if (string.IsNullOrEmpty(commandId))
+            throw new ArgumentNullException(nameof(commandId));
 
         if (!string.IsNullOrEmpty(this.id))
             throw new InvalidOperationException("Command already have an Id");
 
-        this.id = id;
+        this.id = commandId;
 
         return this;
     }

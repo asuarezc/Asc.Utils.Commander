@@ -2,9 +2,9 @@
 
 internal class DefaultCommandDelegate
 {
-    internal Action<ICommand>? SyncronousDelegate { get; private set; }
+    internal Action<ICommand>? SyncronousDelegate { get; }
 
-    internal Func<ICommand, Task>? AsyncronousDelegate { get; private set; }
+    internal Func<ICommand, Task>? AsyncronousDelegate { get; }
 
     internal bool CanExecute() => AsyncronousDelegate is not null || SyncronousDelegate is not null;
 
@@ -23,16 +23,15 @@ internal class DefaultCommandDelegate
         if (SyncronousDelegate is not null)
         {
             await Task.Run(() => SyncronousDelegate(command));
-            return;
         }
     }
 }
 
 internal class DefaultExecutedCommandDelegate
 {
-    internal Action<IExecutedCommand>? SyncronousDelegate { get; private set; }
+    internal Action<IExecutedCommand>? SyncronousDelegate { get; }
 
-    internal Func<IExecutedCommand, Task>? AsyncronousDelegate { get; private set; }
+    internal Func<IExecutedCommand, Task>? AsyncronousDelegate { get; }
 
     internal bool CanExecute() => SyncronousDelegate is not null || AsyncronousDelegate is not null;
 
@@ -51,7 +50,6 @@ internal class DefaultExecutedCommandDelegate
         if (SyncronousDelegate is not null)
         {
             await Task.Run(() => SyncronousDelegate(command));
-            return;
         }
     }
 }
@@ -60,21 +58,17 @@ internal abstract class DefaultExceptionCommandDelegate
 {
     internal Type? ExceptionType { get; set; }
 
-    internal virtual Task RunAsync(Exception ex, IExecutedCommand command)
+    internal virtual Task RunAsync(Exception? ex, IExecutedCommand command)
     {
         throw new InvalidOperationException("Use derived type");
     }
-
-    internal virtual bool CanExecute() => false;
 }
 
 internal class DefaultExceptionCommandDelegate<TException> : DefaultExceptionCommandDelegate where TException : Exception
 {
-    internal Action<TException, IExecutedCommand>? SyncronousDelegate { get; private set; }
+    internal Action<TException, IExecutedCommand>? SyncronousDelegate { get; }
 
-    internal Func<TException, IExecutedCommand, Task>? AsyncronousDelegate { get; private set; }
-
-    internal override bool CanExecute() => AsyncronousDelegate is not null || SyncronousDelegate is not null;
+    internal Func<TException, IExecutedCommand, Task>? AsyncronousDelegate { get; }
 
     private DefaultExceptionCommandDelegate()
     {
@@ -91,7 +85,7 @@ internal class DefaultExceptionCommandDelegate<TException> : DefaultExceptionCom
         AsyncronousDelegate = asyncronousDelegate;
     }
 
-    internal override async Task RunAsync(Exception ex, IExecutedCommand command)
+    internal override async Task RunAsync(Exception? ex, IExecutedCommand command)
     {
         if (ex is null)
             return;
@@ -110,7 +104,6 @@ internal class DefaultExceptionCommandDelegate<TException> : DefaultExceptionCom
         if (SyncronousDelegate is not null)
         {
             await Task.Run(() => SyncronousDelegate(ex, command));
-            return;
         }
     }
 }

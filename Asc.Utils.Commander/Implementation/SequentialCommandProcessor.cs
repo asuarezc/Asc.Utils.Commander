@@ -5,9 +5,9 @@ namespace Asc.Utils.Commander.Implementation;
 internal class SequentialCommandProcessor : ICommandProcessor
 {
     private static readonly Lock locker = new();
-    private readonly CommandProcessorConfiguration? configuration = null;
+    private readonly CommandProcessorConfiguration? configuration;
     private readonly ConcurrentQueue<ICommand> pendingCommands = new();
-    private Task? processUntilQueueIsEmptyTask = null;
+    private Task? processUntilQueueIsEmptyTask;
 
     public void ProcessCommand(ICommand command)
     {
@@ -47,10 +47,10 @@ internal class SequentialCommandProcessor : ICommandProcessor
         if (command is not CommandBase commandBase)
             throw new InvalidOperationException("Cannot process a null command");
 
-        await commandBase.RunAsync(configuration);
+        await commandBase.RunAsync(configuration).ConfigureAwait(false);
 
         if (!pendingCommands.IsEmpty)
-            await ProcessUntilQueueIsEmptyAsync();
+            await ProcessUntilQueueIsEmptyAsync().ConfigureAwait(false);
 
         processUntilQueueIsEmptyTask = null;
     }

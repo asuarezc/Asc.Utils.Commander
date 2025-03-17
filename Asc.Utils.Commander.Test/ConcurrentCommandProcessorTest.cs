@@ -1,9 +1,10 @@
 ﻿using Asc.Utils.Needle;
 using System.Text;
+using Xunit.Abstractions;
 
 namespace Asc.Utils.Commander.Test;
 
-public class ConcurrentCommandProcessorTest
+public class ConcurrentCommandProcessorTest(ITestOutputHelper testOutputHelper)
 {
     [Fact]
     public async Task ConcurrentExecution()
@@ -12,18 +13,18 @@ public class ConcurrentCommandProcessorTest
         TimeSpan total = TimeSpan.Zero;
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .SetMaxNumberOfCommandsProcessedSimultaneosly(10)
-            .OnAnyJobSuccess((IExecutedCommand) =>
+            .SetMaxThreads(10)
+            .OnAnyJobSuccess(executedCommand =>
             {
                 locker.Enter();
 
-                try { total += IExecutedCommand.JobElapsedTime; }
+                try { total += executedCommand.JobElapsedTime; }
                 finally { locker.Exit(); }
             })
             //Mandatory
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
-                Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
             })
             .Build();
 
@@ -43,11 +44,14 @@ public class ConcurrentCommandProcessorTest
 
         await worker.RunAsync();
 
-        //We only wait 1.5 secons but total jobs execution time is between 10 and 10.5 seconds.
+        //We only wait 1.5 secons but total jobs execution time is between 10 and 10.5 seconds
         //This is only possible with simultaneous execution
         await Task.Delay(TimeSpan.FromSeconds(1.5));
 
-        Assert.True(total > TimeSpan.FromSeconds(10) && total < TimeSpan.FromSeconds(10.5));
+        Assert.True(
+            total > TimeSpan.FromSeconds(10)
+            && total < TimeSpan.FromSeconds(10.5)
+        );
     }
 
     [Fact]
@@ -57,18 +61,18 @@ public class ConcurrentCommandProcessorTest
         TimeSpan total = TimeSpan.Zero;
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .SetMaxNumberOfCommandsProcessedSimultaneosly(5)
-            .OnAnyJobSuccess((IExecutedCommand) =>
+            .SetMaxThreads(5)
+            .OnAnyJobSuccess(executedCommand =>
             {
                 locker.Enter();
 
-                try { total += IExecutedCommand.JobElapsedTime; }
+                try { total += executedCommand.JobElapsedTime; }
                 finally { locker.Exit(); }
             })
             //Mandatory
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
-                Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
             })
             .Build();
 
@@ -88,10 +92,10 @@ public class ConcurrentCommandProcessorTest
 
         await worker.RunAsync();
 
-        //We only wait 1.5 secons but total jobs execution time is between 10 and 10.5 seconds.
-        //This is only possible with simultaneous execution
         await Task.Delay(TimeSpan.FromSeconds(1.5));
 
+        //Same Assert condition as above but false instead of true
+        //since the maximum number of commands processed simultaneously has been reduced from 10 to 5
         Assert.False(total > TimeSpan.FromSeconds(10) && total < TimeSpan.FromSeconds(10.5));
     }
 
@@ -103,7 +107,7 @@ public class ConcurrentCommandProcessorTest
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
-                Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
             })
             .Build();
 
@@ -123,6 +127,39 @@ public class ConcurrentCommandProcessorTest
     }
 
     [Fact]
+    public async Task ExecutedCommand()
+    {
+        string result = string.Empty;
+        string executedCommandResult = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .OnAfterAnyJob(executedCommand =>
+            {
+                executedCommandResult = executedCommand.CommandResult.ToString();
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder()
+            .Job(() =>
+            {
+                result = "Job1";
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("Job1", result);
+        Assert.Equal("Succeeded", executedCommandResult);
+    }
+
+    [Fact]
     public async Task GenericCommand()
     {
         string result = string.Empty;
@@ -130,18 +167,220 @@ public class ConcurrentCommandProcessorTest
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
-                Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() => "test")
+            .OnSuccess(jobResult =>
+            {
+                result = jobResult;
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenereicAsyncCommand()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(async () =>
+            {
+                await Task.Delay(10);
+                return "test";
+            })
+            .OnSuccess(jobResult =>
+            {
+                result = jobResult;
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericAsyncOnSuccess()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() => "test")
+            .OnSuccess(async jobResult =>
+            {
+                await Task.Delay(10);
+                result = jobResult;
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericOnFailure()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
             })
             .Build();
 
         ICommand command = Commander.Instance.GetCommandBuilder<string>()
             .Job(() =>
             {
-                return "test";
+                throw new InvalidOperationException();
+#pragma warning disable CS0162 // Unreachable code detected
+                return string.Empty;
+#pragma warning restore CS0162 // Unreachable code detected
             })
-            .OnSuccess((string jobResult) =>
+            .OnSuccess(jobResult =>
             {
                 result = jobResult;
+            })
+            .OnFailure((Exception _) =>
+            {
+                result = "test";
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericAsyncOnFailure()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() =>
+            {
+                throw new InvalidOperationException();
+#pragma warning disable CS0162 // Unreachable code detected
+                return string.Empty;
+#pragma warning restore CS0162 // Unreachable code detected
+            })
+            .OnSuccess(jobResult =>
+            {
+                result = jobResult;
+            })
+            .OnFailure(async (Exception _) =>
+            {
+                await Task.Delay(10);
+                result = "test";
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericOnFinally()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() => "test")
+            //OnSuccess is mandatory when using ComandBuilder<T>
+            .OnSuccess(_ =>
+            {
+                result = string.Empty;
+            })
+            .OnFinally(() =>
+            {
+                result = "test";
+            })
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+    }
+
+    [Fact]
+    public async Task GenericAsyncOnFinally()
+    {
+        string result = string.Empty;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            {
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() => "test")
+            //OnSuccess is mandatory when using ComandBuilder<T>
+            .OnSuccess(_ =>
+            {
+                result = string.Empty;
+            })
+            .OnFinally(async () =>
+            {
+                await Task.Delay(10);
+                result = "test";
             })
             .SetId(nameof(command))
             .Build();
@@ -161,7 +400,7 @@ public class ConcurrentCommandProcessorTest
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
-                Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
             })
             .Build();
 
@@ -188,7 +427,7 @@ public class ConcurrentCommandProcessorTest
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
-                Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
             })
             .Build();
 
@@ -217,17 +456,14 @@ public class ConcurrentCommandProcessorTest
         string result = string.Empty;
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            .OnAnyJobFailure((Exception _, IExecutedCommand command) =>
             {
                 result = command.Id;
             })
             .Build();
 
         ICommand command = Commander.Instance.GetCommandBuilder()
-            .Job(() =>
-            {
-                throw new InvalidOperationException();
-            })
+            .Job(() => throw new InvalidOperationException())
             .SetId(nameof(command))
             .Build();
 
@@ -244,19 +480,19 @@ public class ConcurrentCommandProcessorTest
         StringBuilder builder = new();
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .OnBeforeAnyJob((ICommand command) =>
+            .OnBeforeAnyJob(_ =>
             {
                 builder.Append('A');
             })
-            .OnAnyJobSuccess((IExecutedCommand command) =>
+            .OnAnyJobSuccess(_ =>
             {
                 builder.Append('D');
             })
             .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
             {
-                Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
+                testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\"");
             })
-            .OnAfterAnyJob((IExecutedCommand command) =>
+            .OnAfterAnyJob(_ =>
             {
                 builder.Append('F');
             })
@@ -282,6 +518,7 @@ public class ConcurrentCommandProcessorTest
 
         await Task.Delay(100);
 
+        // ReSharper disable once StringLiteralTypo
         Assert.Equal("ABCDEF", builder.ToString());
     }
 
@@ -291,15 +528,15 @@ public class ConcurrentCommandProcessorTest
         StringBuilder builder = new();
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .OnBeforeAnyJob((ICommand command) =>
+            .OnBeforeAnyJob(_ =>
             {
                 builder.Append('A');
             })
-            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            .OnAnyJobFailure((Exception _, IExecutedCommand _) =>
             {
                 builder.Append('D');
             })
-            .OnAfterAnyJob((IExecutedCommand command) =>
+            .OnAfterAnyJob(_ =>
             {
                 builder.Append('F');
             })
@@ -311,7 +548,7 @@ public class ConcurrentCommandProcessorTest
                 builder.Append('B');
                 throw new InvalidOperationException();
             })
-            .OnFailure((Exception ex) =>
+            .OnFailure((Exception _) =>
             {
                 builder.Append('C');
             })
@@ -326,6 +563,7 @@ public class ConcurrentCommandProcessorTest
 
         await Task.Delay(100);
 
+        // ReSharper disable once StringLiteralTypo
         Assert.Equal("ABCDEF", builder.ToString());
     }
 
@@ -335,15 +573,15 @@ public class ConcurrentCommandProcessorTest
         StringBuilder builder = new();
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .OnBeforeAnyJob((ICommand command) =>
+            .OnBeforeAnyJob(_ =>
             {
                 builder.Append('A');
             })
-            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            .OnAnyJobFailure((Exception _, IExecutedCommand _) =>
             {
                 builder.Append('D');
             })
-            .OnAfterAnyJob((IExecutedCommand command) =>
+            .OnAfterAnyJob(_ =>
             {
                 builder.Append('F');
             })
@@ -355,11 +593,11 @@ public class ConcurrentCommandProcessorTest
                 builder.Append('B');
                 throw new InvalidOperationException();
             })
-            .OnFailure((InvalidOperationException ex) =>
+            .OnFailure((InvalidOperationException _) =>
             {
                 builder.Append('C');
             })
-            .OnFailure((Exception ex) =>
+            .OnFailure((Exception _) =>
             {
                 builder.Append("This should be not executed");
             })
@@ -374,6 +612,7 @@ public class ConcurrentCommandProcessorTest
 
         await Task.Delay(100);
 
+        // ReSharper disable once StringLiteralTypo
         Assert.Equal("ABCDEF", builder.ToString());
     }
 
@@ -383,19 +622,19 @@ public class ConcurrentCommandProcessorTest
         StringBuilder builder = new();
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .OnBeforeAnyJob((ICommand command) =>
+            .OnBeforeAnyJob(_ =>
             {
                 builder.Append('A');
             })
-            .OnAnyJobFailure((InvalidOperationException ex, IExecutedCommand command) =>
+            .OnAnyJobFailure((InvalidOperationException _, IExecutedCommand _) =>
             {
                 builder.Append('D');
             })
-            .OnAnyJobFailure((Exception ex, IExecutedCommand command) =>
+            .OnAnyJobFailure((Exception _, IExecutedCommand _) =>
             {
                 builder.Append("This should be not executed");
             })
-            .OnAfterAnyJob((IExecutedCommand command) =>
+            .OnAfterAnyJob(_ =>
             {
                 builder.Append('F');
             })
@@ -407,11 +646,11 @@ public class ConcurrentCommandProcessorTest
                 builder.Append('B');
                 throw new InvalidOperationException();
             })
-            .OnFailure((InvalidOperationException ex) =>
+            .OnFailure((InvalidOperationException _) =>
             {
                 builder.Append('C');
             })
-            .OnFailure((Exception ex) =>
+            .OnFailure((Exception _) =>
             {
                 builder.Append("This should be not executed");
             })
@@ -426,6 +665,7 @@ public class ConcurrentCommandProcessorTest
 
         await Task.Delay(100);
 
+        // ReSharper disable once StringLiteralTypo
         Assert.Equal("ABCDEF", builder.ToString());
     }
 
@@ -435,19 +675,19 @@ public class ConcurrentCommandProcessorTest
         StringBuilder builder = new();
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .OnBeforeAnyJob(async (ICommand command) =>
+            .OnBeforeAnyJob(async _ =>
             {
                 await Task.Run(() => builder.Append('A'));
             })
-            .OnAnyJobSuccess(async (IExecutedCommand command) =>
+            .OnAnyJobSuccess(async _ =>
             {
                 await Task.Run(() => builder.Append('D'));
             })
             .OnAnyJobFailure(async (Exception ex, IExecutedCommand command) =>
             {
-                await Task.Run(() => Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\""));
+                await Task.Run(() => testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\""));
             })
-            .OnAfterAnyJob(async (IExecutedCommand command) =>
+            .OnAfterAnyJob(async _ =>
             {
                 await Task.Run(() => builder.Append('F'));
             })
@@ -462,6 +702,10 @@ public class ConcurrentCommandProcessorTest
             {
                 await Task.Run(() => builder.Append('C'));
             })
+            .OnFailure(async (InvalidOperationException _) =>
+            {
+                await Task.Run(() => builder.Append("This should be not executed"));
+            })
             .OnFinally(async () =>
             {
                 await Task.Run(() => builder.Append('E'));
@@ -473,6 +717,7 @@ public class ConcurrentCommandProcessorTest
 
         await Task.Delay(100);
 
+        // ReSharper disable once StringLiteralTypo
         Assert.Equal("ABCDEF", builder.ToString());
     }
 
@@ -483,21 +728,61 @@ public class ConcurrentCommandProcessorTest
         TimeSpan? elapsedTime = null;
 
         ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
-            .OnAnyJobSuccess((IExecutedCommand command) =>
+            .OnAnyJobSuccess(command =>
             {
                 result = command.Parameters["param1"].OfType<string>();
                 elapsedTime = command.JobElapsedTime;
             })
             .OnAnyJobFailure(async (Exception ex, IExecutedCommand command) =>
             {
-                await Task.Run(() => Console.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\""));
+                await Task.Run(() => testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\""));
             })
             .Build();
 
         ICommand command = Commander.Instance.GetCommandBuilder()
             .Job(() =>
             {
-                Console.WriteLine("Testing ParametersAndElapsedTime");
+                testOutputHelper.WriteLine("Testing ParametersAndElapsedTime");
+            })
+            .AddOrReplaceParameter("param1", "test")
+            .SetId(nameof(command))
+            .Build();
+
+        commandProcessor.ProcessCommand(command);
+
+        await Task.Delay(100);
+
+        Assert.Equal("test", result);
+        Assert.NotNull(elapsedTime);
+    }
+
+    [Fact]
+    public async Task GenericParametersAndElapsedTime()
+    {
+        string result = string.Empty;
+        TimeSpan? elapsedTime = null;
+
+        ICommandProcessor commandProcessor = Commander.Instance.GetConcurrentCommandProcessorBuilder()
+            .OnAnyJobSuccess(command =>
+            {
+                result = command.Parameters["param1"].OfType<string>();
+                elapsedTime = command.JobElapsedTime;
+            })
+            .OnAnyJobFailure(async (Exception ex, IExecutedCommand command) =>
+            {
+                await Task.Run(() => testOutputHelper.WriteLine($"{command.Id} failed, Exception message is: \"{ex.Message}\""));
+            })
+            .Build();
+
+        ICommand command = Commander.Instance.GetCommandBuilder<string>()
+            .Job(() =>
+            {
+                testOutputHelper.WriteLine("Testing GenericParametersAndElapsedTime");
+                return string.Empty;
+            })
+            .OnSuccess(_ =>
+            {
+                testOutputHelper.WriteLine("Testing GenericParametersAndElapsedTime");
             })
             .AddOrReplaceParameter("param1", "test")
             .SetId(nameof(command))

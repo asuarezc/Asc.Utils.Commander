@@ -8,17 +8,15 @@ internal abstract class CommandBase(
     string id,
     Dictionary<string, ICommandParameter>? commandParameters = null)
 {
-    public string Id { get; private set; } = id;
-
-    public bool HasOnFailureDelegates => OnFailureDelegates is not null && OnFailureDelegates.Count > 0;
+    public string Id { get; } = id;
 
     public IReadOnlyDictionary<string, ICommandParameter> Parameters => commandParameters.AsReadOnly();
 
     internal Dictionary<string, ICommandParameter> commandParameters = commandParameters ?? [];
 
-    internal List<ExceptionCommandDelegate> OnFailureDelegates { get; private set; } = onFailureDelegates;
+    internal List<ExceptionCommandDelegate> OnFailureDelegates { get; } = onFailureDelegates;
 
-    internal CommandDelegate? OnFinallyDelegate { get; private set; } = onFinallyDelegate;
+    internal CommandDelegate? OnFinallyDelegate { get; } = onFinallyDelegate;
 
     internal virtual Task RunAsync(CommandProcessorConfiguration configuration)
     {
@@ -35,9 +33,9 @@ internal class Command(
     Dictionary<string, ICommandParameter>? commandParameters = null)
     : CommandBase(onFailureDelegates, onFinallyDelegate, id, commandParameters), ICommand
 {
-    internal CommandDelegate? JobDelegate { get; private set; } = jobDelegate;
+    internal CommandDelegate? JobDelegate { get; } = jobDelegate;
 
-    internal CommandDelegate? OnSuccessDelegate { get; private set; } = onSuccessDelegate;
+    internal CommandDelegate? OnSuccessDelegate { get; } = onSuccessDelegate;
 
     internal override async Task RunAsync(CommandProcessorConfiguration configuration)
     {
@@ -55,7 +53,7 @@ internal class Command(
         {
             await JobDelegate.ExecuteAsync();
         }
-        catch (Exception ex)
+        catch (Exception? ex)
         {
             stopwatch.Stop();
             success = false;
@@ -65,7 +63,7 @@ internal class Command(
                 delegates: OnFailureDelegates,
                 defaultDelegates: configuration.OnFailureDelegates,
                 jobElapsedTime: stopwatch.Elapsed,
-                Id
+                id: Id
             );
         }
         finally
@@ -107,9 +105,9 @@ internal class Command<TResult>(
     Dictionary<string, ICommandParameter>? commandParameters = null)
     : CommandBase(onFailureDelegates, onFinallyDelegate, id, commandParameters), ICommand
 {
-    internal CommandJobDelegate<TResult>? JobDelegate { get; private set; } = jobDelegate;
+    internal CommandJobDelegate<TResult>? JobDelegate { get; } = jobDelegate;
 
-    internal CommandOnSuccessDelegate<TResult>? OnSuccessDelegate { get; private set; } = onSuccessDelegate;
+    internal CommandOnSuccessDelegate<TResult>? OnSuccessDelegate { get; } = onSuccessDelegate;
 
     internal override async Task RunAsync(CommandProcessorConfiguration configuration)
     {
@@ -128,7 +126,7 @@ internal class Command<TResult>(
         {
             result = await JobDelegate.ExecuteAsync();
         }
-        catch (Exception ex)
+        catch (Exception? ex)
         {
             stopwatch.Stop();
             success = false;
@@ -173,7 +171,7 @@ internal class Command<TResult>(
 
 internal class ExecutedCommand : IExecutedCommand
 {
-    private string? id;
+    private readonly string? id;
 
     public ExecutedCommand(
         TimeSpan jobElapsedTime,
@@ -191,9 +189,9 @@ internal class ExecutedCommand : IExecutedCommand
 
     public IReadOnlyDictionary<string, ICommandParameter> Parameters => commandParameters.AsReadOnly();
 
-    public TimeSpan JobElapsedTime { get; private set; }
+    public TimeSpan JobElapsedTime { get; }
 
-    public ExecutedCommandResult CommandResult { get; private set; }
+    public ExecutedCommandResult CommandResult { get; }
 
-    public string Id { get => id is not null ? id : string.Empty; private set => id = value; }
+    public string Id { get => id ?? string.Empty; private init => id = value; }
 }
